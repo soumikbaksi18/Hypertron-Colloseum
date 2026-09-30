@@ -1,0 +1,273 @@
+.ledger-head {
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.ledger-sub {
+  margin: calc(var(--u) * 1.5) 0 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+/* ── Visibility toggle ─────────────────────────────────────────── */
+
+.ledger-toggle {
+  display: flex;
+  border: 1px solid var(--line-strong);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.ledger-toggle button {
+  padding: calc(var(--u) * 2) calc(var(--u) * 3.25);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  transition:
+    color 0.2s var(--ease),
+    background 0.2s var(--ease);
+}
+
+.ledger-toggle button + button {
+  border-left: 1px solid var(--line-strong);
+}
+
+.ledger-toggle button:hover {
+  color: var(--ink-dim);
+}
+
+.ledger-toggle .is-on {
+  background: rgba(59, 130, 246, 0.16);
+  color: var(--blue);
+}
+
+/* Switching to the public view tints the control yellow, matching the
+   redaction bars it produces. */
+.ledger-toggle .is-shield {
+  background: var(--shield-dim);
+  color: var(--shield);
+}
+
+/* ── Table ─────────────────────────────────────────────────────── */
+
+.ledger-table {
+  transition: background 0.35s var(--ease);
+}
+
+.ledger-table.is-redacted {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 249, 113, 0.022) 0 8px,
+      transparent 8px 16px
+    );
+}
+
+.ledger-row {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1.25fr) minmax(0, 1.3fr) 128px 132px;
+  align-items: center;
+  gap: calc(var(--u) * 3);
+  width: 100%;
+  padding: calc(var(--u) * 2.75) calc(var(--u) * 4);
+  text-align: left;
+}
+
+.ledger-row-header {
+  padding-block: calc(var(--u) * 2);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-ghost);
+}
+
+.ledger-cell-right {
+  text-align: right;
+}
+
+.ledger-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.ledger-rows li + li .ledger-row-item {
+  border-top: 1px solid rgba(126, 163, 222, 0.08);
+}
+
+.ledger-row-item {
+  transition: background 0.15s var(--ease);
+}
+
+.ledger-row-item:hover {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+/* Selected row drives the live trace panel, so it gets a left marker. */
+.ledger-row-item.is-selected {
+  background: rgba(59, 130, 246, 0.1);
+  box-shadow: inset 2px 0 0 var(--blue);
+}
+
+.ledger-time {
+  font-size: 10.5px;
+  color: var(--ink-faint);
+}
+
+.ledger-payee {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-purpose {
+  font-size: 12px;
+  color: var(--ink-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-none {
+  color: var(--ink-ghost);
+}
+
+.ledger-amount {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.ledger-state {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--u) * 1.5);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ledger-pip {
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  background: currentColor;
+}
+
+.ledger-state-neutral {
+  color: var(--ink-faint);
+}
+.ledger-state-blue {
+  color: var(--blue);
+}
+.ledger-state-cyan {
+  color: var(--cyan);
+}
+.ledger-state-amber {
+  color: var(--amber);
+}
+.ledger-state-mint {
+  color: var(--mint);
+}
+.ledger-state-deny {
+  color: var(--deny);
+}
+
+.ledger-state-cyan .ledger-pip,
+.ledger-state-amber .ledger-pip {
+  animation: ledger-pip-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ledger-pip-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* ── Redaction ─────────────────────────────────────────────────── */
+
+/* The bar is the product claim made visible: a field that exists, whose value
+   the observer cannot read. Yellow is reserved for exactly this meaning. */
+.redaction {
+  display: inline-block;
+  height: 11px;
+  vertical-align: middle;
+  border-radius: 1px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 249, 113, 0.5) 0 3px,
+      rgba(255, 249, 113, 0.16) 3px 6px
+    );
+  border: 1px solid rgba(255, 249, 113, 0.26);
+  animation: redact-in 0.28s var(--ease) both;
+}
+
+@keyframes redact-in {
+  from {
+    transform: scaleX(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Empty and footnote ────────────────────────────────────────── */
+
+.ledger-empty p {
+  margin: 0;
+  color: var(--ink-dim);
+}
+
+.ledger-empty-hint {
+  margin-top: calc(var(--u) * 1.5) !important;
+  font-size: 12.5px;
+  color: var(--ink-faint) !important;
+}
+
+.ledger-footnote {
+  margin: 0;
+  padding: calc(var(--u) * 3) calc(var(--u) * 4);
+  border-top: 1px solid rgba(255, 249, 113, 0.16);
+  background: rgba(255, 249, 113, 0.03);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--ink-faint);
+}
+
+@media (max-width: 860px) {
+  .ledger-row {
+    grid-template-columns: 62px minmax(0, 1fr) 104px 112px;
+  }
+  .ledger-purpose {
+    display: none;
+  }
+}

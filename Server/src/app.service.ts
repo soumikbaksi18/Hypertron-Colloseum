@@ -4,8 +4,17 @@ import { Injectable } from '@nestjs/common';
 export class AppService {
   getStatus() {
     return {
-      service: 'hypertron-backend',
+      service: 'hypertron-server',
       status: 'ok',
+      description:
+        'Programmable private financial layer for businesses and autonomous agents.',
+      flow: [
+        'agent',
+        'payment_intent',
+        'policy_authorization',
+        'private_settlement',
+        'reconciliation',
+      ],
     };
   }
 }
