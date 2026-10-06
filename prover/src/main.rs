@@ -111,6 +111,11 @@ enum Cmd {
         #[arg(long)]
         k: String,
     },
+    /// Derive `owner_pk = Poseidon(spend_sk, 0)`.
+    OwnerPk {
+        #[arg(long)]
+        spend_sk: String,
+    },
     /// Generate a viewing keypair (read-only disclosure authority).
     Keygen {
         /// Optional 32-byte hex seed for deterministic derivation.
@@ -642,6 +647,11 @@ fn main() -> Result<()> {
         Cmd::Nullifier { spend_sk, k } => {
             let nf = note::nullifier(parse_fr(&spend_sk)?, parse_fr(&k)?);
             println!("{}", hex0x(groth16::fr_be32(&nf)));
+        }
+
+        Cmd::OwnerPk { spend_sk } => {
+            let pk = note::owner_pk(parse_fr(&spend_sk)?);
+            println!("{}", hex0x(groth16::fr_be32(&pk)));
         }
 
         Cmd::Keygen { seed } => {

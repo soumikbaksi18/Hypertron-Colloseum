@@ -1,0 +1,181 @@
+.composer-actor {
+  font-size: 13.5px;
+  color: var(--ink-faint);
+}
+
+.composer-body {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 2);
+}
+
+/* Inputs are squared wells sunk into the panel, matching the instrument
+   language of the rail rather than floating rounded boxes. */
+.control {
+  width: 100%;
+  padding: calc(var(--u) * 2.75) calc(var(--u) * 3);
+  border: 1px solid var(--line-strong);
+  border-radius: 1px;
+  background: var(--panel-inset);
+  font-size: 16px;
+  color: var(--ink);
+  transition:
+    border-color 0.2s var(--ease),
+    background 0.2s var(--ease);
+}
+
+.control:hover {
+  border-color: var(--line-bright);
+}
+
+.control:focus,
+.control:focus-within {
+  border-color: var(--blue);
+  outline: none;
+  background: rgba(59, 130, 246, 0.06);
+}
+
+select.control {
+  appearance: none;
+  cursor: pointer;
+  /* Room for the chevron drawn as a background mark. */
+  padding-right: calc(var(--u) * 8);
+  background-image: linear-gradient(
+      45deg,
+      transparent 50%,
+      var(--ink-faint) 50%
+    ),
+    linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) calc(50% - 1px),
+    calc(100% - 12px) calc(50% - 1px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.control-amount {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 2);
+  padding: 0 calc(var(--u) * 3);
+}
+
+.control-amount input {
+  flex: 1;
+  min-width: 0;
+  padding: calc(var(--u) * 2.75) 0;
+  border: none;
+  background: none;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.control-amount input:focus {
+  outline: none;
+}
+
+.control-unit {
+  font-size: 13.5px;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+
+/* The one filled button in the console. Yellow would mean "shielded", so the
+   primary action is deliberately blue. */
+.composer-send {
+  margin-top: calc(var(--u) * 1);
+  padding: calc(var(--u) * 3.25);
+  border-radius: 1px;
+  background: var(--blue-deep);
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  transition:
+    background 0.2s var(--ease),
+    transform 0.1s var(--ease);
+}
+
+.composer-send:hover:not(:disabled) {
+  background: var(--blue);
+}
+
+.composer-send:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.composer-send:disabled {
+  background: rgba(37, 99, 235, 0.25);
+  color: var(--ink-faint);
+}
+
+/* ── Presets ───────────────────────────────────────────────────── */
+
+.composer-presets {
+  padding: calc(var(--u) * 4);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 2.5);
+}
+
+.composer-preset-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: calc(var(--u) * 2);
+}
+
+.composer-preset {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: calc(var(--u) * 2.5);
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 1px;
+  background: var(--panel-inset);
+  transition:
+    border-color 0.2s var(--ease),
+    background 0.2s var(--ease);
+}
+
+.composer-preset:hover:not(:disabled) {
+  border-color: var(--line-bright);
+  background: rgba(59, 130, 246, 0.07);
+}
+
+.composer-preset:disabled {
+  opacity: 0.45;
+}
+
+.composer-preset-amount {
+  font-size: 17.5px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.composer-preset-label {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink-dim);
+}
+
+.composer-preset-hint {
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--ink-faint);
+}
+
+@media (max-width: 520px) {
+  .composer-preset-row {
+    grid-template-columns: 1fr;
+  }
+}

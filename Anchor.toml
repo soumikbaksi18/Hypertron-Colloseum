@@ -6,10 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-hypertron_pool = "FqCHy94oXnHa6pGdexND1qCvaZkNEGbUgyVdtMa4Nynf"
+hypertron_pool = "9HQsgGDHgYw3N8PGnh9EWrUGRHgmp7tmdGaxuBHHA335"
 
 [programs.devnet]
-hypertron_pool = "FqCHy94oXnHa6pGdexND1qCvaZkNEGbUgyVdtMa4Nynf"
+hypertron_pool = "9HQsgGDHgYw3N8PGnh9EWrUGRHgmp7tmdGaxuBHHA335"
 
 [provider]
 cluster = "localnet"

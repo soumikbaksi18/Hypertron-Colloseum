@@ -4,7 +4,7 @@ use anchor_lang::prelude::*;
 pub fn hash2(left: &[u8; 32], right: &[u8; 32]) -> Result<[u8; 32]> {
     #[cfg(target_os = "solana")]
     {
-        use anchor_lang::solana_program::poseidon::{hashv, Endianness, Parameters};
+        use solana_poseidon::{hashv, Endianness, Parameters};
         let h = hashv(
             Parameters::Bn254X5,
             Endianness::BigEndian,

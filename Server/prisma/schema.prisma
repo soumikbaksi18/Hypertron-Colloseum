@@ -1,0 +1,360 @@
+// Hypertron — programmable private financial layer for businesses and agents.
+//
+// The spine this schema exists to serve:
+//   Agent -> Payment Intent -> Policy & Authorization -> Private Settlement -> Reconciliation
+//
+// Money is always stored in minor units (BigInt). Never floats.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum IntentStatus {
+  requires_authorization
+  requires_approval
+  authorized
+  settling
+  settled
+  denied
+  failed
+  canceled
+}
+
+enum PolicyDecision {
+  authorized
+  denied
+  needs_human_approval
+}
+
+enum DeliveryStatus {
+  pending
+  succeeded
+  failed
+}
+
+enum PaymentLinkStatus {
+  pending
+  paid
+  expired
+  canceled
+}
+
+/// The business that owns agents and grants them bounded financial authority.
+model Business {
+  id        String   @id @default(cuid())
+  name      String
+  /// Phantom / Solana address that signed in. One business per wallet.
+  walletPubkey  String? @unique
+  /// Where customers send funds for invoices.
+  payoutAddress String?
+  /// Reconciliation viewing key (public half). Secrets never live server-side.
+  viewPub   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agents           Agent[]
+  allowedPayees    AllowedPayee[]
+  paymentIntents   PaymentIntent[]
+  webhookEndpoints WebhookEndpoint[]
+  paymentLinks     PaymentLink[]
+  sessions         DashboardSession[]
+
+  @@map("businesses")
+}
+
+/// Short-lived SIWS nonce. Verified once, then deleted.
+model AuthChallenge {
+  id         String   @id @default(cuid())
+  publicKey  String
+  nonce      String
+  message    String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([publicKey, expiresAt])
+  @@map("auth_challenges")
+}
+
+/// HttpOnly cookie session for the merchant dashboard.
+model DashboardSession {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  businessId String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@map("dashboard_sessions")
+}
+
+model PaymentLink {
+  id         String @id @default(cuid())
+  publicId   String @unique
+  businessId String
+
+  amountMinor        BigInt
+  currency           String
+  purpose            String?
+  clientName         String?
+  memo               String?
+  destinationAddress String
+  expiresAt          DateTime?
+  status             PaymentLinkStatus @default(pending)
+
+  paidAt      DateTime?
+  txSignature String?
+  payerPubkey String?
+  /// Relayer unshield tx after the merchant clicks Withdraw.
+  payoutTxSignature String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@map("payment_links")
+}
+
+/// An agent sub-account. This is the unit of bounded financial authority:
+/// the agent may spend, but only inside these limits and only to allowlisted payees.
+model Agent {
+  id         String  @id @default(cuid())
+  publicId   String  @unique
+  businessId String
+  label      String
+  active     Boolean @default(true)
+  currency   String  @default("USDC")
+
+  /// Hard ceiling for a single intent.
+  perTxLimitMinor BigInt
+  /// Rolling ceiling for the current UTC day across authorized+settled intents.
+  dailyLimitMinor BigInt
+  /// At or below this, Hypertron authorizes automatically.
+  /// Above it, the intent parks in requires_approval for a human.
+  autoApproveLimitMinor BigInt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  business       Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  apiKeys        ApiKey[]
+  paymentIntents PaymentIntent[]
+
+  @@index([businessId])
+  @@map("agents")
+}
+
+/// Credential bound to exactly one agent, so the key *is* the agent's identity.
+model ApiKey {
+  id         String    @id @default(cuid())
+  publicId   String    @unique
+  agentId    String
+  keyPrefix  String
+  secretHash String
+  lastFour   String
+  active     Boolean   @default(true)
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([keyPrefix, active])
+  @@map("api_keys")
+}
+
+/// Merchant policy: who an agent is permitted to pay at all.
+model AllowedPayee {
+  id         String   @id @default(cuid())
+  businessId String
+  /// Opaque payee reference (Solana address, vendor id, supplier code).
+  payeeRef   String
+  label      String
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, payeeRef])
+  @@map("allowed_payees")
+}
+
+/// The object an agent actually creates: "pay invoice #1829 for $437".
+model PaymentIntent {
+  id         String @id @default(cuid())
+  publicId   String @unique
+  businessId String
+  agentId    String
+
+  payeeRef    String
+  amountMinor BigInt
+  currency    String
+  /// Human/business-meaningful reference, e.g. "invoice #1829".
+  reference   String?
+
+  status IntentStatus @default(requires_authorization)
+
+  policyDecision    PolicyDecision?
+  policyReasons     String[]        @default([])
+  policyEvaluatedAt DateTime?
+
+  approvedBy String?
+  approvedAt DateTime?
+
+  // Private settlement result. The agent never sees proofs, notes or nullifiers —
+  // only these opaque handles plus a viewing-key hint for reconciliation.
+  settlementId String?
+  commitment   String?
+  nullifier    String?
+  txSignature  String?
+  viewKeyHint  String?
+  settledAt    DateTime?
+
+  failureCode    String?
+  failureMessage String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  business Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  agent    Agent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  events   IntentEvent[]
+
+  @@index([businessId, createdAt])
+  @@index([agentId, status, createdAt])
+  @@map("payment_intents")
+}
+
+/// Append-only lifecycle audit, and the source of truth for webhook fan-out.
+model IntentEvent {
+  id        String   @id @default(cuid())
+  publicId  String   @unique
+  intentId  String
+  type      String
+  data      Json
+  createdAt DateTime @default(now())
+
+  intent PaymentIntent @relation(fields: [intentId], references: [id], onDelete: Cascade)
+
+  @@unique([intentId, type])
+  @@index([createdAt])
+  @@map("intent_events")
+}
+
+model WebhookEndpoint {
+  id            String   @id @default(cuid())
+  publicId      String   @unique
+  businessId    String
+  url           String
+  /// 32-byte hex HMAC secret.
+  signingSecret String
+  events        String[] @default([])
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  business   Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([businessId, active])
+  @@map("webhook_endpoints")
+}
+
+model WebhookDelivery {
+  id         String @id @default(cuid())
+  publicId   String @unique
+  endpointId String
+  /// IntentEvent.publicId
+  eventId    String
+
+  status        DeliveryStatus @default(pending)
+  attemptCount  Int            @default(0)
+  nextAttemptAt DateTime?
+
+  responseStatus Int?
+  error          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@unique([endpointId, eventId])
+  @@index([status, nextAttemptAt])
+  @@map("webhook_deliveries")
+}
+
+/// Off-chain copy of Poseidon Merkle leaves. The on-chain tree stores filled
+/// subtrees only; unshield / transfer proofs need the full leaf vector.
+model PoolLeaf {
+  id        String   @id @default(cuid())
+  mint      String
+  index     Int
+  leaf      String
+  root      String?
+  createdAt DateTime @default(now())
+
+  @@unique([mint, index])
+  @@index([mint])
+  @@map("pool_leaves")
+}
+
+/// Notes the relayer created (and can later spend). Spend secret stays in env.
+model PoolNote {
+  id             String   @id @default(cuid())
+  mint           String
+  leafIndex      Int
+  commitment     String
+  ownerPk        String
+  blindingK      String
+  value          BigInt
+  encryptedBlob  String?
+  spent          Boolean  @default(false)
+  nullifier      String?
+  intentPublicId String?
+  paymentLinkId  String?
+  createdAt      DateTime @default(now())
+
+  @@index([mint, spent])
+  @@index([commitment])
+  @@map("pool_notes")
+}
+
+/// Proof prepared for a customer-signed invoice deposit, before the tx lands.
+model PoolPendingDeposit {
+  id            String   @id @default(cuid())
+  paymentLinkId String   @unique
+  commitment    String
+  proofHex      String
+  ownerPk       String
+  blindingK     String
+  amount        BigInt
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  @@map("pool_pending_deposits")
+}
+
+/// Replay protection for intent creation, scoped to the calling agent.
+model IdempotencyRecord {
+  id           String   @id @default(cuid())
+  agentId      String
+  key          String
+  requestHash  String
+  /// 0 means "in flight".
+  responseStatus Int    @default(0)
+  responseBody Json?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([agentId, key])
+  @@map("idempotency_records")
+}

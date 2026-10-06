@@ -40,7 +40,7 @@ pub struct RegisterVk<'info> {
         seeds = [b"vk", admin.key().as_ref(), &vk_id.to_le_bytes()],
         bump
     )]
-    pub vk: Account<'info, VerifyingKeyAccount>,
+    pub vk: Box<Account<'info, VerifyingKeyAccount>>,
     pub system_program: Program<'info, System>,
 }
 

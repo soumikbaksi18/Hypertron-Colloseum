@@ -39,7 +39,7 @@ pub struct InitializeCompliance<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
     #[account(mut, has_one = admin)]
-    pub pool: Account<'info, PoolState>,
+    pub pool: Box<Account<'info, PoolState>>,
     #[account(
         init,
         payer = admin,
@@ -55,7 +55,7 @@ pub struct InitializeCompliance<'info> {
 #[instruction(subject: Pubkey)]
 pub struct SetListing<'info> {
     pub admin: Signer<'info>,
-    pub pool: Account<'info, PoolState>,
+    pub pool: Box<Account<'info, PoolState>>,
     #[account(
         mut,
         seeds = [b"compliance", pool.key().as_ref()],

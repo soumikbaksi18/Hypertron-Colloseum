@@ -29,7 +29,7 @@ pub struct Initialize<'info> {
         seeds = [b"pool", mint.key().as_ref()],
         bump
     )]
-    pub pool: Account<'info, PoolState>,
+    pub pool: Box<Account<'info, PoolState>>,
     /// CHECK: PDA authority of the vault ATA.
     #[account(seeds = [b"vault", mint.key().as_ref()], bump)]
     pub vault_authority: UncheckedAccount<'info>,
@@ -48,10 +48,10 @@ pub struct Initialize<'info> {
         seeds = [b"merkle", mint.key().as_ref()],
         bump
     )]
-    pub merkle_tree: Account<'info, MerkleTree>,
-    pub deposit_vk: Account<'info, VerifyingKeyAccount>,
-    pub unshield_vk: Account<'info, VerifyingKeyAccount>,
-    pub transfer_vk: Account<'info, VerifyingKeyAccount>,
+    pub merkle_tree: Box<Account<'info, MerkleTree>>,
+    pub deposit_vk: Box<Account<'info, VerifyingKeyAccount>>,
+    pub unshield_vk: Box<Account<'info, VerifyingKeyAccount>>,
+    pub transfer_vk: Box<Account<'info, VerifyingKeyAccount>>,
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -62,11 +62,11 @@ pub struct Deposit<'info> {
     #[account(mut)]
     pub depositor: Signer<'info>,
     #[account(mut, has_one = mint, has_one = vault, has_one = deposit_vk)]
-    pub pool: Account<'info, PoolState>,
+    pub pool: Box<Account<'info, PoolState>>,
     pub mint: InterfaceAccount<'info, Mint>,
     #[account(mut, seeds = [b"merkle", pool.mint.as_ref()], bump = pool.tree_bump)]
-    pub merkle_tree: Account<'info, MerkleTree>,
-    pub deposit_vk: Account<'info, VerifyingKeyAccount>,
+    pub merkle_tree: Box<Account<'info, MerkleTree>>,
+    pub deposit_vk: Box<Account<'info, VerifyingKeyAccount>>,
     #[account(mut, token::mint = mint, token::authority = depositor)]
     pub depositor_ata: InterfaceAccount<'info, TokenAccount>,
     #[account(mut)]
@@ -83,10 +83,10 @@ pub struct PoolTransfer<'info> {
     #[account(mut)]
     pub fee_payer: Signer<'info>,
     #[account(mut, has_one = transfer_vk)]
-    pub pool: Account<'info, PoolState>,
+    pub pool: Box<Account<'info, PoolState>>,
     #[account(mut, seeds = [b"merkle", pool.mint.as_ref()], bump = pool.tree_bump)]
-    pub merkle_tree: Account<'info, MerkleTree>,
-    pub transfer_vk: Account<'info, VerifyingKeyAccount>,
+    pub merkle_tree: Box<Account<'info, MerkleTree>>,
+    pub transfer_vk: Box<Account<'info, VerifyingKeyAccount>>,
     #[account(
         init,
         payer = fee_payer,
@@ -112,20 +112,20 @@ pub struct Withdraw<'info> {
     #[account(mut)]
     pub fee_payer: Signer<'info>,
     #[account(mut, has_one = mint, has_one = vault, has_one = unshield_vk)]
-    pub pool: Account<'info, PoolState>,
-    pub mint: InterfaceAccount<'info, Mint>,
+    pub pool: Box<Account<'info, PoolState>>,
+    pub mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(mut, seeds = [b"merkle", pool.mint.as_ref()], bump = pool.tree_bump)]
-    pub merkle_tree: Account<'info, MerkleTree>,
-    pub unshield_vk: Account<'info, VerifyingKeyAccount>,
+    pub merkle_tree: Box<Account<'info, MerkleTree>>,
+    pub unshield_vk: Box<Account<'info, VerifyingKeyAccount>>,
     /// CHECK: PDA derived in seeds; signs the Token-2022 transfer out.
     #[account(seeds = [b"vault", pool.mint.as_ref()], bump = pool.vault_bump)]
     pub vault_authority: UncheckedAccount<'info>,
     #[account(mut)]
-    pub vault: InterfaceAccount<'info, TokenAccount>,
+    pub vault: Box<InterfaceAccount<'info, TokenAccount>>,
     /// CHECK: payout destination; bound into the Groth16 public inputs.
     pub recipient: UncheckedAccount<'info>,
     #[account(mut, token::mint = mint, token::authority = recipient)]
-    pub recipient_ata: InterfaceAccount<'info, TokenAccount>,
+    pub recipient_ata: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(
         init,
         payer = fee_payer,
@@ -144,7 +144,7 @@ pub struct Withdraw<'info> {
 #[derive(Accounts)]
 pub struct RegisterMerchantTreasury<'info> {
     pub owner: Signer<'info>,
-    pub pool: Account<'info, PoolState>,
+    pub pool: Box<Account<'info, PoolState>>,
     pub treasury: InterfaceAccount<'info, TokenAccount>,
     #[account(
         init,

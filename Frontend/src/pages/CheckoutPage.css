@@ -1,0 +1,45 @@
+.checkout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  background:
+    radial-gradient(ellipse 70% 50% at 20% -10%, rgba(59, 130, 246, 0.18), transparent 55%),
+    var(--void);
+}
+
+.checkout-brand {
+  padding: clamp(2rem, 6vw, 5rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.checkout-brand h1 {
+  margin: 0;
+  font-family: var(--aeonik), var(--display);
+  font-size: clamp(2rem, 4vw, 3rem);
+  letter-spacing: -0.03em;
+}
+
+.checkout-brand p {
+  margin: 0;
+  color: var(--ink-dim);
+}
+
+.checkout-amount {
+  font-family: var(--mono);
+  font-size: 1.75rem;
+  color: var(--ink) !important;
+}
+
+.checkout-main {
+  margin: auto;
+  width: min(440px, calc(100% - 3rem));
+}
+
+@media (max-width: 840px) {
+  .checkout {
+    grid-template-columns: 1fr;
+  }
+}

@@ -19,9 +19,9 @@ target
 test-ledger
 .anchor
 **/*.so
-pk.bin
-*-proof.json
-vk.json
+# Local proving keys / relayer spend secret
+keys/
+*.sk
 
 # Local reference docs / Stellar source tree (not part of this repo)
 ref/

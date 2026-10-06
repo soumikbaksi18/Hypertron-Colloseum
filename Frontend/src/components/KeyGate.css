@@ -1,0 +1,205 @@
+.gate {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: var(--gutter);
+  background:
+    radial-gradient(
+      ellipse 70% 50% at 50% -10%,
+      rgba(59, 130, 246, 0.16),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 40% 40% at 88% 8%,
+      rgba(255, 249, 113, 0.05),
+      transparent 55%
+    ),
+    linear-gradient(180deg, var(--abyss), var(--void));
+}
+
+/* Hairline grid: the instrument field the console is built on, established
+   before any data exists. */
+.gate::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(126, 163, 222, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(126, 163, 222, 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 65% 55% at 50% 35%, #000, transparent);
+  -webkit-mask-image: radial-gradient(
+    ellipse 65% 55% at 50% 35%,
+    #000,
+    transparent
+  );
+}
+
+.gate-frame {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  padding: calc(var(--u) * 9) calc(var(--u) * 8);
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(14, 24, 41, 0.9), rgba(8, 14, 28, 0.95));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 30px 80px rgba(0, 0, 0, 0.5);
+  animation: gate-rise 0.55s var(--ease) both;
+}
+
+/* Corner brackets, carried over from the Hypertron diagram language. */
+.gate-frame::before,
+.gate-frame::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+}
+
+.gate-frame::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid var(--line-bright);
+  border-left: 1px solid var(--line-bright);
+}
+
+.gate-frame::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 1px solid var(--line-bright);
+  border-bottom: 1px solid var(--line-bright);
+}
+
+@keyframes gate-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.gate-brand {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 2.5);
+  margin-bottom: calc(var(--u) * 7);
+}
+
+.gate-mark {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--blue);
+}
+
+.gate-mark::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: var(--shield);
+}
+
+.gate-wordmark {
+  font-family: var(--display);
+  font-size: 16.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.gate-title {
+  margin: 0 0 calc(var(--u) * 4);
+  font-family: var(--display);
+  font-size: clamp(23px, 3.6vw, 31px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.16;
+}
+
+.gate-lede {
+  margin: 0 0 calc(var(--u) * 8);
+  max-width: 44ch;
+  font-size: 16px;
+  line-height: 1.62;
+  color: var(--ink-faint);
+}
+
+.gate-form {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 3);
+}
+
+.gate-field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 2);
+}
+
+.gate-input {
+  padding: calc(var(--u) * 3) calc(var(--u) * 3.5);
+  border: 1px solid var(--line-strong);
+  border-radius: 1px;
+  background: var(--panel-inset);
+  font-size: 15.5px;
+  color: var(--ink);
+  transition: border-color 0.2s var(--ease);
+}
+
+.gate-input::placeholder {
+  color: var(--ink-ghost);
+}
+
+.gate-input:focus {
+  outline: none;
+  border-color: var(--blue);
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.gate-submit {
+  padding: calc(var(--u) * 3.25);
+  border-radius: 1px;
+  background: var(--blue-deep);
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  transition: background 0.2s var(--ease);
+}
+
+.gate-submit:hover:not(:disabled) {
+  background: var(--blue);
+}
+
+.gate-submit:disabled {
+  background: rgba(37, 99, 235, 0.22);
+  color: var(--ink-faint);
+}
+
+.gate-error {
+  margin: calc(var(--u) * 4) 0 0;
+  padding: calc(var(--u) * 2.5) calc(var(--u) * 3);
+  border-left: 2px solid var(--deny);
+  background: rgba(240, 85, 109, 0.08);
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.gate-hint {
+  margin: calc(var(--u) * 6) 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-faint);
+}
+
+.gate-hint code {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink-dim);
+}

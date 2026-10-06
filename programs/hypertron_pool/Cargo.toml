@@ -18,6 +18,7 @@ anchor-debug = []
 anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
 anchor-spl = { version = "0.31.1", features = ["token_2022"] }
 groth16-solana = "0.2.0"
+solana-poseidon = "2.2"
 
 [target.'cfg(not(target_os = "solana"))'.dependencies]
 light-poseidon = "0.4"

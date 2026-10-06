@@ -37,7 +37,7 @@ pub(crate) use transfer::{
 };
 pub(crate) use verifier::__client_accounts_register_vk;
 
-declare_id!("FqCHy94oXnHa6pGdexND1qCvaZkNEGbUgyVdtMa4Nynf");
+declare_id!("9HQsgGDHgYw3N8PGnh9EWrUGRHgmp7tmdGaxuBHHA335");
 
 pub const PROOF_LEN: usize = 256;
 
