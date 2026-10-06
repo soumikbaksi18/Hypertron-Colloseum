@@ -1,0 +1,25 @@
+[package]
+name = "hypertron_pool"
+version = "0.1.0"
+description = "Hypertron shielded pool — one Anchor program (tree, nullifiers, Groth16, Token-2022 vault)"
+edition = "2021"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "hypertron_pool"
+
+[features]
+default = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+anchor-debug = []
+
+[dependencies]
+anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
+anchor-spl = { version = "0.31.1", features = ["token_2022"] }
+groth16-solana = "0.2.0"
+
+[target.'cfg(not(target_os = "solana"))'.dependencies]
+light-poseidon = "0.4"
+ark-bn254 = "0.5"
+ark-ff = "0.5"
