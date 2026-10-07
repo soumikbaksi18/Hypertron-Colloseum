@@ -1,0 +1,864 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@theme {
+  --color-blue: #3b82f6;
+  --color-blue-deep: #2563eb;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Aeonik Pro", sans-serif;
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
+}
+
+/* Scoped stand-in for Tailwind preflight. Kept in the base layer so utilities win. */
+@layer base {
+  :where(.landing-root, .landing-root *) {
+    box-sizing: border-box;
+    border: 0 solid;
+  }
+
+  :where(.landing-root h1, .landing-root h2, .landing-root h3, .landing-root h4, .landing-root p, .landing-root figure, .landing-root blockquote) {
+    margin: 0;
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  :where(.landing-root ul, .landing-root ol) {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  :where(.landing-root img, .landing-root video, .landing-root canvas, .landing-root svg) {
+    display: block;
+    max-width: 100%;
+  }
+
+  :where(.landing-root button, .landing-root input, .landing-root textarea, .landing-root select) {
+    font: inherit;
+    color: inherit;
+    background: transparent;
+    padding: 0;
+  }
+
+  :where(.landing-root a) {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+.landing-root {
+  background: #05070c;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  min-height: 100svh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.landing-atmosphere {
+  background:
+    radial-gradient(
+      ellipse 80% 50% at 50% -20%,
+      rgba(59, 130, 246, 0.22),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 40% 40% at 85% 10%,
+      rgba(250, 204, 21, 0.08),
+      transparent 50%
+    ),
+    linear-gradient(180deg, #000000 0%, #030712 100%);
+}
+
+.landing-atmosphere::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black, transparent);
+  pointer-events: none;
+  animation: grid-breathe 12s ease-in-out infinite;
+}
+
+.landing-atmosphere::after {
+  content: "";
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  width: min(720px, 90vw);
+  height: min(420px, 50vh);
+  translate: -50% 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(59, 130, 246, 0.28),
+    transparent 70%
+  );
+  pointer-events: none;
+  animation: glow-drift 14s ease-in-out infinite;
+}
+
+.spectrum-line {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(250, 204, 21, 0.55),
+    rgba(59, 130, 246, 0.5),
+    rgba(34, 211, 238, 0.45),
+    transparent
+  );
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes grid-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes glow-drift {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: translate(-50%, 0) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, 8px) scale(1.04);
+  }
+}
+
+.hero-enter {
+  opacity: 0;
+  animation: hero-rise 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.hero-enter-delay-1 {
+  animation-delay: 0.08s;
+}
+.hero-enter-delay-2 {
+  animation-delay: 0.18s;
+}
+.hero-enter-delay-3 {
+  animation-delay: 0.28s;
+}
+.hero-enter-delay-4 {
+  animation-delay: 0.4s;
+}
+
+.landing-root {
+  background: #05070c;
+  color: #ffffff;
+}
+
+.landing-paper {
+  background: #ffffff;
+  color: #1c2433;
+}
+
+.landing-faq {
+  background: linear-gradient(180deg, #f3f7fb 0%, #ffffff 58%);
+  color: #1c2433;
+}
+
+/* Footer fades from the white FAQ section down into deep navy, with an
+   oversized wordmark cropped by the page edge. */
+.landing-footer {
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #e6edf8 6%,
+    #c6d6ec 13%,
+    #9db6da 21%,
+    #6c8dc0 31%,
+    #3e639b 43%,
+    #21406e 56%,
+    #102340 70%,
+    #08132a 82%,
+    #040a16 92%,
+    #02050c 100%
+  );
+  color: #ffffff;
+}
+
+/* ASCII layer sits on the hero gradient. `difference` self-contrasts: the
+   white glyphs read light over the navy top and dark over the pale bottom. */
+.landing-ascii {
+  mix-blend-mode: difference;
+}
+
+/* Auth dialog borrows the footer's deep-navy descent. */
+.landing-auth-dialog {
+  background: linear-gradient(180deg, #0d1526 0%, #080e1c 55%, #040914 100%);
+}
+
+.landing-footer-wordmark {
+  margin: 0 auto;
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  padding-inline: 1.25rem;
+  font-family: "Aeonik Pro", sans-serif;
+  font-size: clamp(4rem, 19.5vw, 20rem);
+  font-weight: 700;
+  line-height: 0.78;
+  letter-spacing: -0.045em;
+  text-align: center;
+  white-space: nowrap;
+  user-select: none;
+  background: linear-gradient(
+    180deg,
+    #f7fafe 0%,
+    #dde7f5 28%,
+    #a9bcd8 52%,
+    #6d86ac 70%,
+    #3c5075 85%,
+    #1e2b45 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (min-width: 640px) {
+  .landing-footer-wordmark {
+    padding-inline: 2.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .landing-footer-wordmark {
+    padding-inline: 4rem;
+  }
+}
+
+/* Ways sits on the pale top third; the journey step list needs to be dark
+   enough for white ink from ~40% down. */
+.landing-journey-span {
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #f4f8fc 8%,
+    #e6edf8 16%,
+    #cfdcf0 23%,
+    #aec6e2 29%,
+    #87a6d0 34%,
+    #5f83b6 39%,
+    #42679d 44%,
+    #2d4f80 50%,
+    #1e3c66 57%,
+    #142d4f 64%,
+    #0e2139 72%,
+    #09182b 80%,
+    #050e1c 88%,
+    #02070f 95%,
+    #02050c 100%
+  );
+}
+
+.landing-ways-exit,
+.landing-journey {
+  background: transparent;
+}
+
+/* Frames are a bright subject on pure black, so `screen` keys the black out
+   and lets the dark section gradient show through underneath. */
+.landing-journey-frames {
+  mix-blend-mode: screen;
+  -webkit-mask-image: linear-gradient(180deg, #000 78%, transparent 98%);
+  mask-image: linear-gradient(180deg, #000 78%, transparent 98%);
+}
+
+.landing-privacy-span {
+  background: linear-gradient(
+    180deg,
+    #02050c 0%,
+    #040a16 12%,
+    #08132a 22%,
+    #102340 34%,
+    #21406e 46%,
+    #3e639b 58%,
+    #6c8dc0 69%,
+    #9db6da 79%,
+    #c6d6ec 88%,
+    #e6edf8 95%,
+    #ffffff 100%
+  );
+}
+
+.landing-hero-stage {
+  background: linear-gradient(
+    180deg,
+    #c6d6ec 0%,
+    #e6edf8 46%,
+    #ffffff 100%
+  );
+  overflow: hidden;
+}
+
+.landing-hero-frame {
+  background: #05070c;
+}
+
+.landing-hero-scene {
+  position: absolute;
+  inset: 0;
+}
+
+.landing-hero-video,
+.landing-hero-video-fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.landing-hero-video-fill {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .landing-hero-frame,
+  .landing-hero-scene {
+    background:
+      radial-gradient(ellipse 120% 70% at 50% 100%, #1d4e8c 0%, transparent 58%),
+      linear-gradient(180deg, #030712 0%, #071428 38%, #0c2c5c 68%, #163e78 100%);
+  }
+
+  .landing-hero-video-fill {
+    display: block;
+    object-position: 0% 80%;
+  }
+
+  .landing-hero-video {
+    inset: auto;
+    left: 0;
+    right: 0;
+    top: 60%;
+    z-index: 1;
+    width: 100%;
+    height: min(66vh, 36rem);
+    transform: translateY(-50%);
+    object-fit: cover;
+    object-position: 74% 46%;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      #000 14%,
+      #000 88%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      #000 14%,
+      #000 88%,
+      transparent 100%
+    );
+  }
+}
+
+.landing-hero-title {
+  font-family: "Aeonik Pro", sans-serif;
+}
+
+
+.landing-rail-pulse {
+  background-image:
+    radial-gradient(circle at 18% 78%, rgba(255, 255, 255, 0.22) 1px, transparent 1.2px),
+    radial-gradient(circle at 78% 28%, rgba(59, 130, 246, 0.5) 1px, transparent 1.2px),
+    linear-gradient(105deg, transparent 12%, rgba(255, 255, 255, 0.5) 49%, transparent 54%);
+  background-size: 18px 18px, 22px 22px, 100% 100%;
+}
+
+.landing-hero-mask {
+  background: linear-gradient(
+    180deg,
+    #02050c 0%,
+    #08132a 18%,
+    #102340 30%,
+    #21406e 44%,
+    #3e639b 57%,
+    #6c8dc0 69%,
+    #9db6da 79%,
+    #c6d6ec 87%,
+    #e6edf8 94%,
+    #ffffff 100%
+  );
+}
+
+.landing-hero-veil {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(5, 7, 12, 0.78) 0%,
+      rgba(5, 7, 12, 0.38) 42%,
+      rgba(5, 7, 12, 0.12) 70%,
+      rgba(5, 7, 12, 0.28) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(5, 7, 12, 0.42) 0%,
+      transparent 28%,
+      rgba(5, 7, 12, 0.55) 100%
+    );
+}
+
+@media (max-width: 767px) {
+  .landing-hero-veil {
+    background: linear-gradient(
+      180deg,
+      rgba(5, 7, 12, 0.62) 0%,
+      rgba(5, 7, 12, 0.28) 26%,
+      rgba(5, 7, 12, 0.06) 48%,
+      rgba(5, 7, 12, 0.22) 72%,
+      rgba(5, 7, 12, 0.7) 100%
+    );
+  }
+}
+
+.landing-nav {
+  color: #ffffff;
+  transition:
+    background-color 0.35s ease,
+    border-color 0.35s ease,
+    color 0.35s ease;
+}
+
+.landing-nav-ink {
+  color: inherit;
+}
+
+.landing-nav-logo-dark {
+  opacity: 0;
+}
+
+.landing-nav-logo-light {
+  opacity: 1;
+}
+
+html[data-landing="paper"] .landing-nav-logo-dark {
+  opacity: 1;
+}
+
+html[data-landing="paper"] .landing-nav-logo-light {
+  opacity: 0;
+}
+
+.landing-launch {
+  position: relative;
+}
+
+.landing-launch a {
+  display: inline-flex;
+  align-items: center;
+  height: 2.5rem;
+  padding-inline: 1.15rem 1.85rem;
+  border-radius: 0;
+  background: #ffffff;
+  color: #05070c;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.landing-launch a:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.landing-launch-arrow {
+  color: #05070c;
+}
+
+html[data-landing="paper"] .landing-nav {
+  background: transparent;
+  color: #0b1220;
+  border-bottom: none;
+  box-shadow: none;
+}
+
+html[data-landing="paper"] .landing-nav::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: transparent;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
+
+html[data-landing="paper"] .landing-launch a {
+  background: #0b1220;
+  color: #ffffff;
+}
+
+html[data-landing="paper"] .landing-launch a:hover {
+  background: #000000;
+}
+
+html[data-landing="paper"] .landing-launch-arrow {
+  color: #ffffff;
+}
+
+/* ─── Ecosystem diagram ─── */
+.eco-architecture-line,
+.eco-architecture-line-active {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 2 5;
+  stroke-linecap: square;
+}
+
+.eco-architecture-line {
+  stroke: rgba(75, 105, 146, 0.28);
+}
+
+.eco-architecture-line-active {
+  opacity: 0;
+  stroke: #3b82f6;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.38));
+  transition: opacity 0.25s ease;
+}
+
+.eco-architecture-line-active--shown {
+  opacity: 1;
+  animation: eco-line-flow 0.85s linear infinite;
+}
+
+.eco-interface {
+  overflow: visible;
+  border: 1px solid rgba(26, 58, 104, 0.9);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(79, 137, 221, 0.2), transparent 58%),
+    linear-gradient(180deg, #10284a 0%, #08182f 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+    0 10px 32px rgba(14, 39, 75, 0.18);
+}
+
+.eco-interface::before,
+.eco-interface::after {
+  content: "";
+  position: absolute;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.eco-interface::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid #83b2f3;
+  border-left: 1px solid #83b2f3;
+}
+
+.eco-interface::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 1px solid #83b2f3;
+  border-bottom: 1px solid #83b2f3;
+}
+
+.eco-interface-pixels {
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  width: 15%;
+  opacity: 0.56;
+  pointer-events: none;
+  background-image: radial-gradient(
+    circle,
+    rgba(101, 158, 240, 0.78) 0 1px,
+    transparent 1.1px
+  );
+  background-size: 7px 7px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000);
+  mask-image: linear-gradient(90deg, transparent, #000);
+  animation: eco-pixel-breathe 3s ease-in-out infinite;
+}
+
+.eco-interface-pixels-left {
+  right: 100%;
+}
+
+.eco-interface-pixels-right {
+  left: 100%;
+  transform: scaleX(-1);
+}
+
+.eco-interface-copy {
+  animation: eco-copy-in 0.3s ease both;
+}
+
+@keyframes eco-line-flow {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+@keyframes eco-pixel-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+
+@keyframes eco-copy-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Privacy diagram ─── */
+.privacy-system {
+  --privacy-x: 50%;
+  --privacy-y: 50%;
+  isolation: isolate;
+}
+
+.privacy-system::before {
+  content: "";
+  position: absolute;
+  inset: -10%;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at var(--privacy-x) var(--privacy-y),
+    rgba(75, 137, 232, 0.12),
+    transparent 34%
+  );
+  transition: background 0.15s linear;
+}
+
+.privacy-dot-field {
+  opacity: 0.62;
+  background-image: radial-gradient(
+    circle,
+    rgba(210, 226, 250, 0.72) 0 1px,
+    transparent 1.15px
+  );
+  background-position: center;
+  background-size: 8px 8px;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 12%,
+    #000 42%,
+    transparent 46%,
+    transparent 54%,
+    #000 58%,
+    #000 88%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 12%,
+    #000 42%,
+    transparent 46%,
+    transparent 54%,
+    #000 58%,
+    #000 88%,
+    transparent
+  );
+  animation: privacy-dots 4s ease-in-out infinite;
+}
+
+.privacy-spine {
+  position: relative;
+  overflow: hidden;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(158, 197, 255, 0.68) 0 2px,
+    transparent 2px 6px
+  );
+}
+
+.privacy-spine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(255, 255, 255, 0.95),
+    transparent
+  );
+  transform: translateY(-100%);
+  animation: privacy-signal 2.2s linear infinite;
+}
+
+.privacy-layer {
+  border: 1px solid rgba(158, 197, 255, 0.46);
+  background:
+    linear-gradient(180deg, rgba(20, 45, 79, 0.62), rgba(7, 17, 34, 0.78)),
+    radial-gradient(circle at 50% 0%, rgba(83, 146, 241, 0.2), transparent 58%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+    0 0 44px rgba(50, 115, 215, 0.12);
+  backdrop-filter: blur(10px);
+}
+
+.privacy-layer::before,
+.privacy-layer::after {
+  content: "";
+  position: absolute;
+  width: 1.5rem;
+  height: 1.5rem;
+  pointer-events: none;
+}
+
+.privacy-layer::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid #b5d1ff;
+  border-left: 1px solid #b5d1ff;
+}
+
+.privacy-layer::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 1px solid #b5d1ff;
+  border-bottom: 1px solid #b5d1ff;
+}
+
+.privacy-particles {
+  position: absolute;
+  top: 24%;
+  bottom: 20%;
+  width: 26%;
+  pointer-events: none;
+  opacity: 0.58;
+  background-image: radial-gradient(
+    circle,
+    rgba(158, 197, 255, 0.75) 0 1px,
+    transparent 1.1px
+  );
+  background-size: 8px 8px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000);
+  mask-image: linear-gradient(90deg, transparent, #000);
+}
+
+.privacy-particles-left {
+  right: 100%;
+}
+
+.privacy-particles-right {
+  left: 100%;
+  transform: scaleX(-1);
+}
+
+.privacy-copy {
+  animation: privacy-copy-in 0.3s ease both;
+}
+
+.privacy-branch,
+.privacy-branch-active {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 2 6;
+  stroke-linecap: square;
+}
+
+.privacy-branch {
+  stroke: rgba(210, 226, 250, 0.42);
+}
+
+.privacy-branch-active {
+  opacity: 0;
+  stroke: #9ec5ff;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 4px rgba(158, 197, 255, 0.68));
+  transition: opacity 0.25s ease;
+}
+
+.privacy-branch-active--shown {
+  opacity: 1;
+  animation: privacy-branch-flow 0.8s linear infinite;
+}
+
+@keyframes privacy-dots {
+  0%,
+  100% {
+    opacity: 0.42;
+  }
+  50% {
+    opacity: 0.78;
+  }
+}
+
+@keyframes privacy-signal {
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes privacy-copy-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes privacy-branch-flow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .landing-atmosphere::before,
+  .landing-atmosphere::after {
+    animation: none;
+  }
+
+  .hero-enter {
+    opacity: 1;
+    animation: none;
+  }
+
+  .landing-hero-frame {
+    transform: none !important;
+  }
+}
