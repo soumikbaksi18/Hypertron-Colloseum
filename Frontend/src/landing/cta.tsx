@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
+import { PhantomSignupDialog } from "../components/PhantomSignupDialog";
 import { ScrollFade } from "./reveal";
 
 export function LandingCta() {
@@ -25,12 +26,10 @@ export function LandingCta() {
               </div>
 
               <div className="flex flex-col items-start gap-3 lg:items-end lg:pb-2">
-                <Link
-                  to="/app"
-                  className="inline-flex h-12 items-center rounded-none bg-[#0b1220] px-7 text-[11px] font-semibold tracking-[0.16em] text-white uppercase hover:bg-black"
-                >
-                  Launch app
-                </Link>
+                <PhantomSignupDialog
+                  triggerLabel="Launch app"
+                  triggerClassName="inline-flex h-12 items-center rounded-none bg-[#0b1220] px-7 text-[11px] font-semibold tracking-[0.16em] text-white uppercase hover:bg-black"
+                />
                 <div className="flex flex-wrap gap-3">
                   <Link
                     to="/app/developers"

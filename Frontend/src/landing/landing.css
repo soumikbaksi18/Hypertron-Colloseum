@@ -35,9 +35,11 @@
   }
 
   :where(.landing-root button, .landing-root input, .landing-root textarea, .landing-root select) {
+    appearance: none;
     font: inherit;
     color: inherit;
-    background: transparent;
+    background-color: transparent;
+    background-image: none;
     padding: 0;
   }
 
@@ -209,6 +211,56 @@
 /* Auth dialog borrows the footer's deep-navy descent. */
 .landing-auth-dialog {
   background: linear-gradient(180deg, #0d1526 0%, #080e1c 55%, #040914 100%);
+}
+
+.landing-auth-overlay button,
+.landing-auth-dialog button {
+  appearance: none;
+}
+
+.landing-auth-overlay > button,
+.landing-auth-dialog button[aria-label='Close'] {
+  background-color: transparent;
+  background-image: none;
+  color: rgb(255 255 255 / 0.45);
+}
+
+.landing-auth-overlay {
+  animation: landing-auth-fade 160ms ease;
+}
+
+.landing-auth-panel {
+  animation: landing-auth-zoom 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes landing-auth-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes landing-auth-zoom {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes landing-auth-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.landing-auth-spin {
+  animation: landing-auth-spin 0.7s linear infinite;
 }
 
 .landing-footer-wordmark {
@@ -470,7 +522,8 @@ html[data-landing="paper"] .landing-nav-logo-light {
   position: relative;
 }
 
-.landing-launch a {
+.landing-launch a,
+.landing-launch button {
   display: inline-flex;
   align-items: center;
   height: 2.5rem;
@@ -484,7 +537,8 @@ html[data-landing="paper"] .landing-nav-logo-light {
   text-transform: uppercase;
 }
 
-.landing-launch a:hover {
+.landing-launch a:hover,
+.landing-launch button:hover {
   background: rgba(255, 255, 255, 0.9);
 }
 
@@ -512,12 +566,14 @@ html[data-landing="paper"] .landing-nav::before {
   -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
 }
 
-html[data-landing="paper"] .landing-launch a {
+html[data-landing="paper"] .landing-launch a,
+html[data-landing="paper"] .landing-launch button {
   background: #0b1220;
   color: #ffffff;
 }
 
-html[data-landing="paper"] .landing-launch a:hover {
+html[data-landing="paper"] .landing-launch a:hover,
+html[data-landing="paper"] .landing-launch button:hover {
   background: #000000;
 }
 

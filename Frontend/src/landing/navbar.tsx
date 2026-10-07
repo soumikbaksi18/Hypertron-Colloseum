@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
+import { PhantomSignupDialog } from "../components/PhantomSignupDialog";
 import { clamp01, easeInOutCubic, subscribeScroll } from "./scroll-sync";
 
 const links = [
@@ -134,7 +135,7 @@ export function LandingNavbar() {
         </nav>
 
         <div className="landing-launch">
-          <Link to="/app">Launch app</Link>
+          <PhantomSignupDialog triggerLabel="Launch app" />
           <ArrowUpRight
             aria-hidden
             className="landing-launch-arrow pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2"

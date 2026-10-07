@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Eye, Link2, SlidersHorizontal } from "lucide-react";
+import { PhantomSignupDialog } from "../components/PhantomSignupDialog";
 import { AsciiDither } from "./ascii-dither";
 import { clamp01, easeInOutCubic, lerp, subscribeScroll } from "./scroll-sync";
 import {
@@ -256,16 +257,18 @@ export function LandingHero() {
                   developers. Onboard, settle, and operate on one layer.
                 </p>
                 <div className="hero-enter hero-enter-delay-3 mt-8 flex w-fit flex-wrap items-center gap-2.5">
-                  <Link
-                    to="/app"
-                    className="inline-flex h-10 items-center gap-2 rounded-none bg-white px-4 text-[11px] leading-none font-semibold tracking-[0.14em] text-black uppercase transition hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue"
-                  >
-                    Start building
-                    <ArrowRight
-                      className="size-3.5 shrink-0 translate-y-[1px]"
-                      strokeWidth={2}
-                    />
-                  </Link>
+                  <PhantomSignupDialog
+                    triggerLabel={
+                      <>
+                        Start building
+                        <ArrowRight
+                          className="size-3.5 shrink-0 translate-y-[1px]"
+                          strokeWidth={2}
+                        />
+                      </>
+                    }
+                    triggerClassName="inline-flex h-10 items-center gap-2 rounded-none bg-white px-4 text-[11px] leading-none font-semibold tracking-[0.14em] text-black uppercase transition hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue"
+                  />
                   <Link
                     to="/app/developers"
                     className="inline-flex h-10 items-center justify-center rounded-none border border-white/20 bg-white/5 px-4 text-[11px] font-semibold tracking-[0.14em] text-white uppercase backdrop-blur-sm transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue"

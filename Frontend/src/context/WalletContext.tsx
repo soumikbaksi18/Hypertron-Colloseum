@@ -9,7 +9,11 @@ import {
 } from 'react';
 
 import { ApiError } from '../lib/http';
-import { bytesToBase64, getPhantom } from '../lib/phantom';
+import {
+  PHANTOM_INSTALL_URL,
+  runPhantomSignInFlow,
+  type PhantomSignInResult,
+} from '../lib/phantom-sign-in';
 import { sessionApi, type WalletSession } from '../lib/session';
 
 type WalletState = {
@@ -17,7 +21,7 @@ type WalletState = {
   session: WalletSession | null;
   error: string | null;
   signingIn: boolean;
-  signIn: () => Promise<void>;
+  signIn: (onStatus?: (message: string) => void) => Promise<PhantomSignInResult>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -60,37 +64,29 @@ export function WalletSessionProvider({ children }: { children: ReactNode }) {
     };
   }, [refresh]);
 
-  const signIn = useCallback(async () => {
-    const phantom = getPhantom();
-    if (!phantom) {
-      setError('Install the Phantom browser extension, then try again.');
-      window.open('https://phantom.app/', '_blank', 'noopener,noreferrer');
-      return;
-    }
-
+  const signIn = useCallback(async (onStatus?: (message: string) => void) => {
     setSigningIn(true);
     setError(null);
     try {
-      const connected = await phantom.connect();
-      const publicKey = connected.publicKey.toBase58();
-      const challenge = await sessionApi.challenge(publicKey);
-      const encoded = new TextEncoder().encode(challenge.message);
-      const signed = await phantom.signMessage(encoded, 'utf8');
-      const signatureBytes = signed instanceof Uint8Array ? signed : signed.signature;
-      const next = await sessionApi.verify({
-        publicKey,
-        challengeId: challenge.challengeId,
-        signature: bytesToBase64(signatureBytes),
-      });
-      setSession(next);
+      const result = await runPhantomSignInFlow(onStatus);
+      if (result.ok) {
+        setSession(result.session);
+        return result;
+      }
+      setError(result.error);
+      if (result.needsInstall) {
+        window.open(PHANTOM_INSTALL_URL, '_blank', 'noopener,noreferrer');
+      }
+      return result;
     } catch (err) {
-      setError(
+      const error =
         err instanceof ApiError
           ? err.message
           : err instanceof Error
             ? err.message
-            : 'Could not sign in with Phantom.',
-      );
+            : 'Could not sign in with Phantom.';
+      setError(error);
+      return { ok: false as const, error };
     } finally {
       setSigningIn(false);
     }
