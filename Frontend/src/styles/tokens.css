@@ -100,15 +100,20 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-button,
-input,
-select {
+button {
+  cursor: pointer;
+}
+
+/* The marketing page uses utility classes for type, color, and fill.
+   These resets stay off while that page is mounted. */
+:where(body:not(:has(.landing-root))) button,
+:where(body:not(:has(.landing-root))) input,
+:where(body:not(:has(.landing-root))) select {
   font: inherit;
   color: inherit;
 }
 
-button {
-  cursor: pointer;
+:where(body:not(:has(.landing-root))) button {
   border: none;
   background: none;
 }

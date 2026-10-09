@@ -15,7 +15,6 @@ import { PaymentsPage } from './pages/app/PaymentsPage';
 import { ReconcilePage } from './pages/app/ReconcilePage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import './components/KeyGate.css';
-import './pages/LandingPage.css';
 import './App.css';
 
 export default function App() {

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 
@@ -46,6 +47,7 @@ function servePrefix(urlPrefix: string, dir: string): Plugin {
 export default defineConfig({
   plugins: [
     react(),
+    tailwindcss(),
     servePrefix('/keys/', path.resolve(root, '../keys')),
     servePrefix('/wasm/', path.resolve(root, '../prover-wasm/pkg')),
   ],

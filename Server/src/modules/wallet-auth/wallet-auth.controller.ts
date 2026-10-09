@@ -36,8 +36,14 @@ export class WalletAuthController {
   constructor(private readonly sessions: WalletSessionService) {}
 
   @Post('challenge')
-  challenge(@Body() body: ChallengeDto) {
-    return this.sessions.issueChallenge(body.publicKey);
+  challenge(@Body() body: ChallengeDto, @Req() request: Request) {
+    const origin = request.headers.origin;
+    return this.sessions.issueChallenge({
+      publicKey: body.publicKey,
+      domain: body.domain,
+      uri: body.uri,
+      originHeader: Array.isArray(origin) ? origin[0] : origin,
+    });
   }
 
   @Post('verify')
@@ -49,6 +55,7 @@ export class WalletAuthController {
       body.publicKey,
       body.challengeId,
       body.signature,
+      body.signedMessage,
     );
 
     response.cookie(SESSION_COOKIE, token, {
