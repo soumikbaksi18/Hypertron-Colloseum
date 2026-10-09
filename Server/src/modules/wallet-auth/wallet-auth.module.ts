@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 
-import { WalletAuthController } from './wallet-auth.controller';
+import { HypertronIdsController, WalletAuthController } from './wallet-auth.controller';
 import { WalletSessionGuard } from './wallet-session.guard';
 import { WalletSessionService } from './wallet-session.service';
 
 @Module({
-  controllers: [WalletAuthController],
+  controllers: [WalletAuthController, HypertronIdsController],
   providers: [WalletSessionService, WalletSessionGuard],
   exports: [WalletSessionService, WalletSessionGuard],
 })

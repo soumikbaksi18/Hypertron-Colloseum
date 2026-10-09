@@ -6,11 +6,9 @@ import { shortenAddress } from '../lib/phantom';
 import './AppShell.css';
 
 const NAV = [
-  { to: '/app', end: true, label: 'Overview', hint: 'Invoices today' },
-  { to: '/app/payments', label: 'Payments', hint: 'Create a link' },
-  { to: '/app/developers', label: 'Developers', hint: 'Keys and MCP' },
-  { to: '/app/agents', label: 'Agents', hint: 'Policy console' },
-  { to: '/app/settings', label: 'Settings', hint: 'Payout address' },
+  { to: '/app', end: true, label: 'Wallet', hint: 'Private USDC' },
+  { to: '/app/payments', label: 'Invoices', hint: 'Request payment' },
+  { to: '/app/settings', label: 'Settings', hint: 'Keys and payout' },
 ] as const;
 
 export function AppShell() {
@@ -53,7 +51,7 @@ export function AppShell() {
         <div className="app-sidebar-identity">
           <p className="app-sidebar-business">{session.name}</p>
           <p className="app-sidebar-agent mono">
-            {shortenAddress(session.wallet_address)}
+            {session.handle ?? shortenAddress(session.wallet_address)}
           </p>
           <button type="button" className="app-sidebar-exit" onClick={() => void signOut()}>
             Disconnect

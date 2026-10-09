@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 
+import { ensureShieldKeys } from '../lib/ensure-keys';
 import { ApiError } from '../lib/http';
 import { bytesToBase64, getPhantom } from '../lib/phantom';
 import { sessionApi, type WalletSession } from '../lib/session';
@@ -33,7 +34,12 @@ export function WalletSessionProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     try {
       const next = await sessionApi.me();
-      setSession(next);
+      try {
+        const ensured = await ensureShieldKeys(next);
+        setSession(ensured.session);
+      } catch {
+        setSession(next);
+      }
       setError(null);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -82,7 +88,12 @@ export function WalletSessionProvider({ children }: { children: ReactNode }) {
         challengeId: challenge.challengeId,
         signature: bytesToBase64(signatureBytes),
       });
-      setSession(next);
+      try {
+        const ensured = await ensureShieldKeys(next);
+        setSession(ensured.session);
+      } catch {
+        setSession(next);
+      }
     } catch (err) {
       setError(
         err instanceof ApiError

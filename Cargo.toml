@@ -5,6 +5,8 @@ members = [
     "prover",
     "prover-wasm",
 ]
+# cargo-build-sbf (rustc 1.79) cannot parse enum-ordinalize 4.4+ (edition 2024).
+# Keep Cargo.lock on enum-ordinalize 4.3.2 / enum-ordinalize-derive 4.3.2.
 default-members = ["programs/hypertron_pool", "prover"]
 
 [workspace.package]

@@ -9,4 +9,9 @@ export class AppController {
   getStatus() {
     return this.appService.getStatus();
   }
+
+  @Get('health')
+  getHealth() {
+    return { service: 'hypertron-server', status: 'ok' };
+  }
 }

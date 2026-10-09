@@ -1,0 +1,52 @@
+const RPC =
+  (import.meta.env.VITE_SOLANA_RPC_URL as string | undefined) ??
+  'https://api.devnet.solana.com';
+
+export type SolanaCluster = 'localnet' | 'devnet' | 'mainnet';
+
+export function rpcUrl(): string {
+  return RPC;
+}
+
+export function solanaCluster(): SolanaCluster {
+  const rpc = RPC.toLowerCase();
+  if (rpc.includes('devnet')) return 'devnet';
+  if (rpc.includes('mainnet')) return 'mainnet';
+  if (
+    rpc.includes('127.0.0.1') ||
+    rpc.includes('localhost') ||
+    rpc.includes('localnet')
+  ) {
+    return 'localnet';
+  }
+  return 'devnet';
+}
+
+export function indexerNetwork(): string {
+  return (
+    (import.meta.env.VITE_INDEXER_NETWORK as string | undefined)?.trim() ||
+    solanaCluster()
+  );
+}
+
+export function phantomPayHint(): string {
+  const cluster = solanaCluster();
+  if (cluster === 'devnet') {
+    return 'Switch Phantom to Devnet. Confirm the deposit; we land it on Solana devnet. The merchant withdraws from the pool later.';
+  }
+  if (cluster === 'mainnet') {
+    return 'Switch Phantom to Mainnet. Confirm the shielded deposit. The merchant withdraws from the pool later.';
+  }
+  return 'Switch Phantom to Localhost (http://127.0.0.1:8899). A red mainnet simulation warning is expected — confirm anyway; we land the signed deposit on localnet. The merchant withdraws from the pool to any address.';
+}
+
+export function phantomClusterError(): string {
+  const cluster = solanaCluster();
+  if (cluster === 'devnet') {
+    return 'Phantom simulated this on the wrong cluster. Switch it to Devnet, then Shield and pay again.';
+  }
+  if (cluster === 'mainnet') {
+    return 'Phantom simulated this on the wrong cluster. Switch it to Mainnet, then Shield and pay again.';
+  }
+  return 'Phantom simulated this on the wrong cluster. Switch it to Localhost (http://127.0.0.1:8899), then Shield and pay again. If it still warns, confirm anyway — we submit the signed deposit to localnet.';
+}
