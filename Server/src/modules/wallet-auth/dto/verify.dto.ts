@@ -1,4 +1,4 @@
-import { IsString, Length } from 'class-validator';
+import { IsString, Length, MaxLength } from 'class-validator';
 
 export class VerifyDto {
   @IsString()
@@ -10,4 +10,8 @@ export class VerifyDto {
 
   @IsString()
   signature!: string;
+
+  @IsString()
+  @MaxLength(8000)
+  signedMessage!: string;
 }

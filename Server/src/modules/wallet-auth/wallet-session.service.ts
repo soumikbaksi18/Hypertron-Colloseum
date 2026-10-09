@@ -11,9 +11,16 @@ import {
   ResourceNotFoundException,
 } from '../../common/exceptions/hypertron.exception';
 import { BusinessContext } from './business-context';
+import {
+  createSignInMessageText,
+  parseSignInMessageText,
+  type StoredSignIn,
+} from './siws-message';
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const SIGN_IN_STATEMENT =
+  'Sign in to Hypertron. This does not send a transaction or cost a fee.';
 const USDC = (whole: number) => BigInt(whole) * 1_000_000n;
 
 export const SESSION_COOKIE = 'ht_dashboard';
@@ -22,31 +29,47 @@ export const SESSION_COOKIE = 'ht_dashboard';
 export class WalletSessionService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async issueChallenge(publicKey: string) {
-    this.assertPubkey(publicKey);
+  async issueChallenge(input: {
+    publicKey?: string;
+    domain: string;
+    uri: string;
+    originHeader?: string;
+  }) {
+    if (input.publicKey) this.assertPubkey(input.publicKey);
+    const target = this.resolveSignInTarget(input.domain, input.uri, input.originHeader);
     const nonce = crypto.randomBytes(16).toString('hex');
     const issuedAt = new Date().toISOString();
-    const message = [
-      'Hypertron wants you to sign in.',
-      '',
-      `Public Key: ${publicKey}`,
-      `Nonce: ${nonce}`,
-      `Issued At: ${issuedAt}`,
-    ].join('\n');
+    const stored: StoredSignIn = {
+      v: 1,
+      domain: target.domain,
+      statement: SIGN_IN_STATEMENT,
+      uri: target.uri,
+      version: '1',
+      nonce,
+      issuedAt,
+    };
 
     const challenge = await this.prisma.authChallenge.create({
       data: {
-        publicKey,
+        publicKey: input.publicKey ?? '',
         nonce,
-        message,
+        message: JSON.stringify(stored),
         expiresAt: new Date(Date.now() + CHALLENGE_TTL_MS),
       },
     });
 
     return {
       challengeId: challenge.id,
-      message: challenge.message,
+      message: SIGN_IN_STATEMENT,
       expiresAt: challenge.expiresAt.toISOString(),
+      signIn: {
+        domain: stored.domain,
+        statement: stored.statement,
+        uri: stored.uri,
+        version: stored.version,
+        nonce: stored.nonce,
+        issuedAt: stored.issuedAt,
+      },
     };
   }
 
@@ -54,6 +77,7 @@ export class WalletSessionService {
     publicKey: string,
     challengeId: string,
     signatureB64: string,
+    signedMessageB64: string,
   ): Promise<{ token: string; business: BusinessContext }> {
     this.assertPubkey(publicKey);
 
@@ -61,7 +85,7 @@ export class WalletSessionService {
       where: { id: challengeId },
     });
 
-    if (!challenge || challenge.publicKey !== publicKey) {
+    if (!challenge || (challenge.publicKey && challenge.publicKey !== publicKey)) {
       throw new AuthenticationException(
         'Unknown or expired sign-in challenge.',
         'invalid_challenge',
@@ -76,7 +100,31 @@ export class WalletSessionService {
       );
     }
 
-    if (!this.verifyEd25519(challenge.message, signatureB64, publicKey)) {
+    const stored = this.readStoredSignIn(challenge.message);
+    if (!stored || stored.nonce !== challenge.nonce) {
+      throw new AuthenticationException(
+        'Unknown or expired sign-in challenge.',
+        'invalid_challenge',
+      );
+    }
+
+    const signedBytes = Buffer.from(signedMessageB64, 'base64');
+    const signedText = signedBytes.toString('utf8');
+    const parsed = parseSignInMessageText(signedText);
+    const expected = createSignInMessageText({ ...stored, address: publicKey });
+    const sameMessage =
+      parsed !== null &&
+      parsed.domain === stored.domain &&
+      parsed.address === publicKey &&
+      parsed.statement === stored.statement &&
+      parsed.uri === stored.uri &&
+      parsed.version === stored.version &&
+      parsed.nonce === stored.nonce &&
+      parsed.issuedAt === stored.issuedAt &&
+      !parsed.chainId &&
+      signedText.replace(/\n+$/, '') === expected;
+
+    if (!sameMessage || !this.verifyEd25519Bytes(signedBytes, signatureB64, publicKey)) {
       throw new AuthenticationException(
         'Wallet signature did not match this challenge.',
         'invalid_signature',
@@ -251,16 +299,85 @@ export class WalletSessionService {
     };
   }
 
-  private verifyEd25519(message: string, signatureB64: string, publicKey: string): boolean {
+  private verifyEd25519Bytes(
+    message: Uint8Array,
+    signatureB64: string,
+    publicKey: string,
+  ): boolean {
     try {
       const sig = Buffer.from(signatureB64, 'base64');
       const pub = bs58.decode(publicKey);
-      const msg = Buffer.from(message, 'utf8');
       if (sig.length !== 64 || pub.length !== 32) return false;
-      return nacl.sign.detached.verify(msg, sig, pub);
+      return nacl.sign.detached.verify(message, sig, pub);
     } catch {
       return false;
     }
+  }
+
+  private readStoredSignIn(message: string): StoredSignIn | null {
+    try {
+      const parsed = JSON.parse(message) as StoredSignIn;
+      if (parsed?.v !== 1 || !parsed.domain || !parsed.nonce || !parsed.issuedAt) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  private resolveSignInTarget(domain: string, uri: string, originHeader?: string) {
+    let parsed: URL;
+    try {
+      parsed = new URL(uri);
+    } catch {
+      throw new InvalidRequestException(
+        'invalid_sign_in_uri',
+        'Sign-in URI is not a valid URL.',
+        'uri',
+      );
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new InvalidRequestException(
+        'invalid_sign_in_uri',
+        'Sign-in URI must be http or https.',
+        'uri',
+      );
+    }
+    if (parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== '/') {
+      throw new InvalidRequestException(
+        'invalid_sign_in_uri',
+        'Sign-in URI must be the site origin.',
+        'uri',
+      );
+    }
+    if (parsed.host !== domain) {
+      throw new InvalidRequestException(
+        'invalid_sign_in_domain',
+        'Sign-in domain must match the site host.',
+        'domain',
+      );
+    }
+
+    if (originHeader) {
+      let origin: URL;
+      try {
+        origin = new URL(originHeader);
+      } catch {
+        throw new InvalidRequestException(
+          'invalid_sign_in_origin',
+          'Request origin is not valid.',
+          'uri',
+        );
+      }
+      if (origin.origin !== parsed.origin) {
+        throw new InvalidRequestException(
+          'invalid_sign_in_origin',
+          'Sign-in origin does not match this page.',
+          'uri',
+        );
+      }
+    }
+
+    return { domain: parsed.host, uri: parsed.origin };
   }
 
   private assertPubkey(value: string): void {

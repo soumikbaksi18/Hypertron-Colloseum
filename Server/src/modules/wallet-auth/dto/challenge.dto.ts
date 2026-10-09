@@ -1,7 +1,16 @@
-import { IsString, Length } from 'class-validator';
+import { IsOptional, IsString, Length, MaxLength } from 'class-validator';
 
 export class ChallengeDto {
+  @IsOptional()
   @IsString()
   @Length(32, 64)
-  publicKey!: string;
+  publicKey?: string;
+
+  @IsString()
+  @MaxLength(255)
+  domain!: string;
+
+  @IsString()
+  @MaxLength(300)
+  uri!: string;
 }

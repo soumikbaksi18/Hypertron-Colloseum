@@ -15,6 +15,14 @@ export type AuthChallenge = {
   challengeId: string;
   message: string;
   expiresAt: string;
+  signIn: {
+    domain: string;
+    statement: string;
+    uri: string;
+    version: '1';
+    nonce: string;
+    issuedAt: string;
+  };
 };
 
 async function sessionFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -35,13 +43,18 @@ async function sessionFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const sessionApi = {
-  challenge: (publicKey: string) =>
+  challenge: (body: { domain: string; uri: string }) =>
     sessionFetch<AuthChallenge>('/v1/auth/challenge', {
       method: 'POST',
-      body: JSON.stringify({ publicKey }),
+      body: JSON.stringify(body),
     }),
 
-  verify: (body: { publicKey: string; challengeId: string; signature: string }) =>
+  verify: (body: {
+    publicKey: string;
+    challengeId: string;
+    signature: string;
+    signedMessage: string;
+  }) =>
     sessionFetch<WalletSession>('/v1/auth/verify', {
       method: 'POST',
       body: JSON.stringify(body),
