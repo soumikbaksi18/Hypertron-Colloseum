@@ -4,8 +4,11 @@ export type WalletSession = {
   auth: 'wallet';
   business_id: string;
   name: string;
+  handle?: string | null;
   wallet_address: string;
   payout_address: string | null;
+  view_pub?: string | null;
+  owner_pk?: string | null;
 };
 
 export type AuthChallenge = {
@@ -49,7 +52,12 @@ export const sessionApi = {
   logout: () =>
     sessionFetch<{ ok: boolean }>('/v1/auth/logout', { method: 'POST' }),
 
-  updateMe: (body: { name?: string; payoutAddress?: string }) =>
+  updateMe: (body: {
+    name?: string;
+    payoutAddress?: string;
+    viewPub?: string;
+    ownerPk?: string;
+  }) =>
     sessionFetch<WalletSession>('/v1/auth/me', {
       method: 'PATCH',
       body: JSON.stringify(body),

@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { WalletSessionProvider } from './context/WalletContext';
 import { LandingPage } from './pages/LandingPage';
 import { AppShell } from './pages/AppShell';
-import { OverviewPage } from './pages/app/OverviewPage';
+import { WalletPage } from './pages/app/WalletPage';
 import { CollectPaymentsPage } from './pages/app/CollectPaymentsPage';
 import { DevelopersPage } from './pages/app/DevelopersPage';
 import { SettingsPage } from './pages/app/SettingsPage';
@@ -25,7 +25,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/pay/:id" element={<CheckoutPage />} />
         <Route path="/app" element={<AppShell />}>
-          <Route index element={<OverviewPage />} />
+          <Route index element={<WalletPage />} />
           <Route path="payments" element={<CollectPaymentsPage />} />
           <Route path="developers" element={<DevelopersPage />} />
           <Route path="settings" element={<SettingsPage />} />

@@ -54,6 +54,10 @@ model Business {
   payoutAddress String?
   /// Reconciliation viewing key (public half). Secrets never live server-side.
   viewPub   String?
+  /// Poseidon owner_pk for invoice notes (public). spend_sk stays in the merchant browser.
+  ownerPk   String?
+  /// Public Hypertron ID (ht_…). Send and invoices use this, not a Solana address.
+  handle    String?  @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -105,6 +109,8 @@ model PaymentLink {
   clientName         String?
   memo               String?
   destinationAddress String
+  /// Payee Hypertron ID. Checkout pays this user via in-pool transfer.
+  recipientHandle    String?
   expiresAt          DateTime?
   status             PaymentLinkStatus @default(pending)
 
@@ -113,6 +119,8 @@ model PaymentLink {
   payerPubkey String?
   /// Relayer unshield tx after the merchant clicks Withdraw.
   payoutTxSignature String?
+  /// Earliest time a public unshield is allowed (timing gap after deposit).
+  withdrawableAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -324,6 +332,7 @@ model PoolNote {
 
   @@index([mint, spent])
   @@index([commitment])
+  @@index([ownerPk, spent])
   @@map("pool_notes")
 }
 
@@ -336,6 +345,7 @@ model PoolPendingDeposit {
   ownerPk       String
   blindingK     String
   amount        BigInt
+  encryptedBlob String?
   expiresAt     DateTime
   createdAt     DateTime @default(now())
 

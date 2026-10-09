@@ -36,7 +36,7 @@ export class PaymentLinksController {
 
   @Post(':id/prepare-shield')
   prepareShield(@Param('id') id: string, @Body() body: PreparePaymentLinkDto) {
-    return this.links.prepareShield(id, body.payer_pubkey);
+    return this.links.prepareShield(id, body);
   }
 
   @Post(':id/broadcast')
@@ -51,7 +51,7 @@ export class PaymentLinksController {
     @Param('id') id: string,
     @Body() body: WithdrawPaymentLinkDto,
   ) {
-    return this.links.withdraw(business, id, body.destination);
+    return this.links.withdraw(business, id, body);
   }
 
   @Post(':id/confirm')

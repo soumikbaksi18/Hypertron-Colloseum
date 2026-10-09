@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 
 import { ChallengeDto } from './dto/challenge.dto';
@@ -7,7 +17,19 @@ import { VerifyDto } from './dto/verify.dto';
 import { CurrentBusiness } from './current-business.decorator';
 import type { BusinessContext } from './business-context';
 import { WalletSessionGuard } from './wallet-session.guard';
+import { loadConfig } from '../../common/config/configuration';
 import { SESSION_COOKIE, WalletSessionService } from './wallet-session.service';
+
+function sessionCookieOptions() {
+  const cookie = loadConfig().cookie;
+  return {
+    httpOnly: true as const,
+    sameSite: cookie.sameSite,
+    secure: cookie.secure,
+    path: '/',
+    ...(cookie.domain ? { domain: cookie.domain } : {}),
+  };
+}
 
 @Controller('v1/auth')
 export class WalletAuthController {
@@ -30,10 +52,7 @@ export class WalletAuthController {
     );
 
     response.cookie(SESSION_COOKIE, token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: false,
-      path: '/',
+      ...sessionCookieOptions(),
       maxAge: this.sessions.cookieMaxAge(),
     });
 
@@ -46,7 +65,7 @@ export class WalletAuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     await this.sessions.revoke(request.cookies?.[SESSION_COOKIE]);
-    response.clearCookie(SESSION_COOKIE, { path: '/' });
+    response.clearCookie(SESSION_COOKIE, sessionCookieOptions());
     return { ok: true };
   }
 
@@ -70,8 +89,21 @@ export class WalletAuthController {
     return {
       business_id: business.businessId,
       name: business.name,
+      handle: business.handle,
       wallet_address: business.walletPubkey,
       payout_address: business.payoutAddress,
+      view_pub: business.viewPub,
+      owner_pk: business.ownerPk,
     };
+  }
+}
+
+@Controller('v1/ids')
+export class HypertronIdsController {
+  constructor(private readonly sessions: WalletSessionService) {}
+
+  @Get(':handle')
+  lookup(@Param('handle') handle: string) {
+    return this.sessions.lookupHandle(handle);
   }
 }

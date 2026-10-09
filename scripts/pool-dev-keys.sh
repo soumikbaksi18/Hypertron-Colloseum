@@ -24,13 +24,14 @@ export HYPERTRON_INSECURE_DEV_SETUP=1
 
 setup() {
   local circuit="$1"
-  local pk="$KEYS/${circuit}.pk.bin"
-  local vk="$KEYS/${circuit}.vk.json"
+  local stem="${2:-$1}"
+  local pk="$KEYS/${stem}.pk.bin"
+  local vk="$KEYS/${stem}.vk.json"
   if [[ -f "$pk" && -f "$vk" ]]; then
-    echo "skip $circuit (already in $KEYS)"
+    echo "skip $stem (already in $KEYS)"
     return
   fi
-  echo "setup $circuit…"
+  echo "setup $circuit → $stem…"
   "$PROVE" setup --circuit "$circuit" --depth 20 --insecure-dev-seed "$SEED" \
     --pk-out "$pk" --vk-out "$vk"
 }
@@ -38,6 +39,7 @@ setup() {
 setup deposit
 setup unshield
 setup transfer
+setup transfer-2 transfer2
 
 if [[ ! -f "$KEYS/spend.sk" ]]; then
   openssl rand -hex 32 | sed 's/^/0x/' > "$KEYS/spend.sk"

@@ -34,9 +34,12 @@ async function main(): Promise<void> {
 
   const depositVk = prover.vkPath('deposit');
   const unshieldVk = prover.vkPath('unshield');
-  const transferVk = fs.existsSync(prover.vkPath('transfer'))
-    ? prover.vkPath('transfer')
-    : depositVk;
+  const transfer2Vk = path.join(path.resolve(cfg.keysDir), 'transfer2.vk.json');
+  const transferVk = fs.existsSync(transfer2Vk)
+    ? transfer2Vk
+    : fs.existsSync(prover.vkPath('transfer'))
+      ? prover.vkPath('transfer')
+      : depositVk;
 
   if (!fs.existsSync(depositVk) || !fs.existsSync(unshieldVk)) {
     throw new Error(
@@ -53,14 +56,33 @@ async function main(): Promise<void> {
   console.log(`deposit vk ${depositAddr}`);
   const unshieldAddr = await client.registerVkFromFile(unshieldVk, VK_ID.unshield);
   console.log(`unshield vk ${unshieldAddr}`);
-  const transferAddr = await client.registerVkFromFile(transferVk, VK_ID.transfer);
-  console.log(`transfer vk ${transferAddr}`);
+  const transferVkId = fs.existsSync(transfer2Vk)
+    ? VK_ID.transfer2
+    : VK_ID.transfer;
+  const transferAddr = await client.registerVkFromFile(transferVk, transferVkId);
+  console.log(`transfer vk ${transferAddr} id=${transferVkId}`);
+  const transferOneFile = prover.vkPath('transfer');
+  if (fs.existsSync(transferOneFile)) {
+    const transferOneAddr = await client.registerVkFromFile(
+      transferOneFile,
+      VK_ID.transferOne,
+    );
+    console.log(`transfer-one vk ${transferOneAddr} id=${VK_ID.transferOne}`);
+  }
 
   const pool = await client.initializePool({
     deposit: VK_ID.deposit,
     unshield: VK_ID.unshield,
-    transfer: VK_ID.transfer,
+    transfer: transferVkId,
   });
+  try {
+    if (fs.existsSync(transfer2Vk)) {
+      const rotated = await client.setTransferVk(VK_ID.transfer2);
+      console.log(`transfer vk rotated ${rotated}`);
+    }
+  } catch (error) {
+    console.warn(`set_transfer_vk skipped: ${String(error)}`);
+  }
   console.log(`pool       ${pool}`);
 
   const state = await client.fetchPool();

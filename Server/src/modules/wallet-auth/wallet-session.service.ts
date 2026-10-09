@@ -8,6 +8,7 @@ import { publicId } from '../../common/utils/crypto.util';
 import {
   AuthenticationException,
   InvalidRequestException,
+  ResourceNotFoundException,
 } from '../../common/exceptions/hypertron.exception';
 import { BusinessContext } from './business-context';
 
@@ -84,7 +85,7 @@ export class WalletSessionService {
 
     await this.prisma.authChallenge.delete({ where: { id: challenge.id } }).catch(() => undefined);
 
-    const business = await this.upsertBusiness(publicKey);
+    const business = await this.ensureHandle(await this.upsertBusiness(publicKey));
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = this.hashToken(token);
 
@@ -111,7 +112,7 @@ export class WalletSessionService {
       }
       return null;
     }
-    return this.toContext(session.business);
+    return this.ensureHandle(this.toContext(session.business));
   }
 
   async revoke(token: string | undefined): Promise<void> {
@@ -123,7 +124,12 @@ export class WalletSessionService {
 
   async updateMe(
     businessId: string,
-    input: { name?: string; payoutAddress?: string },
+    input: {
+      name?: string;
+      payoutAddress?: string;
+      viewPub?: string;
+      ownerPk?: string;
+    },
   ): Promise<BusinessContext> {
     if (input.payoutAddress) this.assertPubkey(input.payoutAddress);
     const updated = await this.prisma.business.update({
@@ -131,9 +137,11 @@ export class WalletSessionService {
       data: {
         ...(input.name !== undefined ? { name: input.name.trim() || 'Untitled business' } : {}),
         ...(input.payoutAddress !== undefined ? { payoutAddress: input.payoutAddress } : {}),
+        ...(input.viewPub !== undefined ? { viewPub: input.viewPub.trim() || null } : {}),
+        ...(input.ownerPk !== undefined ? { ownerPk: input.ownerPk.trim() || null } : {}),
       },
     });
-    return this.toContext(updated);
+    return this.ensureHandle(this.toContext(updated));
   }
 
   cookieMaxAge(): number {
@@ -145,12 +153,13 @@ export class WalletSessionService {
       where: { walletPubkey },
     });
     if (existing) {
-      return this.toContext(existing);
+      return this.ensureHandle(this.toContext(existing));
     }
 
     const created = await this.prisma.business.create({
       data: {
         name: 'Untitled business',
+        handle: await this.allocateHandle(),
         walletPubkey,
         payoutAddress: walletPubkey,
         agents: {
@@ -183,17 +192,62 @@ export class WalletSessionService {
     return this.toContext(created);
   }
 
+  async lookupHandle(handle: string) {
+    const normalized = handle.trim().toLowerCase();
+    if (!normalized) {
+      throw new InvalidRequestException('invalid_handle', 'Missing Hypertron ID.');
+    }
+    const business = await this.prisma.business.findFirst({
+      where: { handle: { equals: normalized, mode: 'insensitive' } },
+      select: { handle: true, name: true, ownerPk: true, viewPub: true },
+    });
+    if (!business?.handle || !business.ownerPk || !business.viewPub) {
+      throw new ResourceNotFoundException('No Hypertron user published keys for that ID.');
+    }
+    return {
+      handle: business.handle,
+      name: business.name,
+      owner_pk: business.ownerPk,
+      view_pub: business.viewPub,
+    };
+  }
+
+  private async allocateHandle(): Promise<string> {
+    for (let i = 0; i < 8; i += 1) {
+      const handle = `ht_${crypto.randomBytes(4).toString('hex')}`;
+      const taken = await this.prisma.business.findUnique({ where: { handle } });
+      if (!taken) return handle;
+    }
+    return publicId('ht').slice(0, 16);
+  }
+
+  private async ensureHandle(business: BusinessContext): Promise<BusinessContext> {
+    if (business.handle) return business;
+    const handle = await this.allocateHandle();
+    const updated = await this.prisma.business.update({
+      where: { id: business.businessId },
+      data: { handle },
+    });
+    return this.toContext(updated);
+  }
+
   private toContext(business: {
     id: string;
     name: string;
+    handle?: string | null;
     walletPubkey: string | null;
     payoutAddress: string | null;
+    viewPub?: string | null;
+    ownerPk?: string | null;
   }): BusinessContext {
     return {
       businessId: business.id,
       walletPubkey: business.walletPubkey ?? '',
       name: business.name,
+      handle: business.handle ?? null,
       payoutAddress: business.payoutAddress,
+      viewPub: business.viewPub ?? null,
+      ownerPk: business.ownerPk ?? null,
     };
   }
 

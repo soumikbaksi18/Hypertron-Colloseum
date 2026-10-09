@@ -9,7 +9,7 @@ export type PaymentLink = {
   purpose: string | null;
   client_name: string | null;
   memo: string | null;
-  destination_address: string;
+  destination_address?: string | null;
   expires_at: string | null;
   status: PaymentLinkStatus;
   paid_at: string | null;
@@ -18,10 +18,20 @@ export type PaymentLink = {
   created_at?: string;
   url: string;
   business_name: string;
+  recipient_handle?: string | null;
   payment_tx_hash?: string | null;
   rail?: 'pool' | 'mock';
+  cluster?: string | null;
   in_pool?: boolean;
   payout_tx_signature?: string | null;
+  withdrawable_at?: string | null;
+  amount_buckets?: string[];
+  owner_pk?: string | null;
+  view_pub?: string | null;
+  encrypted_blob?: string | null;
+  leaf_index?: number | null;
+  note_value?: string | null;
+  commitment?: string | null;
 };
 
 async function cookieFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -95,9 +105,43 @@ export const paymentLinksApi = {
     } catch {
       unreachable();
     }
-    return parseApi<{ transaction: string; commitment: string; rail: 'pool' }>(
-      response,
-    );
+    return parseApi<{
+      transaction: string;
+      commitment: string;
+      owner_pk: string;
+      view_pub: string | null;
+      amount: string;
+      rail: 'pool';
+    }>(response);
+  },
+
+  prepareShieldWithProof: async (
+    id: string,
+    body: {
+      payer_pubkey: string;
+      commitment: string;
+      proof: string;
+      blob?: string;
+    },
+  ) => {
+    let response: Response;
+    try {
+      response = await fetch(`${BASE_URL}/v1/payment-links/${id}/prepare-shield`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      unreachable();
+    }
+    return parseApi<{
+      transaction: string;
+      commitment: string;
+      owner_pk: string;
+      view_pub: string | null;
+      amount: string;
+      rail: 'pool';
+    }>(response);
   },
 
   broadcast: async (
@@ -117,7 +161,17 @@ export const paymentLinksApi = {
     return parseApi<PaymentLink>(response);
   },
 
-  withdraw: (id: string, body: { destination: string }) =>
+  withdraw: (
+    id: string,
+    body: {
+      destination: string;
+      amount?: string;
+      root?: string;
+      nullifier?: string;
+      change_cm?: string;
+      proof?: string;
+    },
+  ) =>
     cookieFetch<PaymentLink>(`/v1/payment-links/${id}/withdraw`, {
       method: 'POST',
       body: JSON.stringify(body),
