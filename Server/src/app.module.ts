@@ -16,6 +16,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { WalletAuthModule } from './modules/wallet-auth/wallet-auth.module';
 import { PaymentLinksModule } from './modules/payment-links/payment-links.module';
 import { DeveloperKeysModule } from './modules/developer-keys/developer-keys.module';
+import { WorkspacesModule } from './modules/workspaces/workspaces.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { DeveloperKeysModule } from './modules/developer-keys/developer-keys.mod
     WalletAuthModule,
     PaymentLinksModule,
     DeveloperKeysModule,
+    WorkspacesModule,
   ],
   controllers: [AppController],
   providers: [

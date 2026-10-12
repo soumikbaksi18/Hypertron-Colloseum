@@ -27,7 +27,7 @@ const FLOW_STEPS = [
 export function PhantomSignupDialog({
   triggerLabel,
   triggerClassName,
-  redirectTo = '/app',
+  redirectTo = '/dashboard',
   eyebrow = 'Create account',
   title = 'Sign up with Phantom',
   description = 'Connect your Solana wallet and sign a one-time challenge to continue.',

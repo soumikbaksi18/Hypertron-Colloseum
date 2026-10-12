@@ -14,6 +14,8 @@ import { ApprovalsPage } from './pages/app/ApprovalsPage';
 import { PaymentsPage } from './pages/app/PaymentsPage';
 import { ReconcilePage } from './pages/app/ReconcilePage';
 import { CheckoutPage } from './pages/CheckoutPage';
+import { DashboardPage } from './pages/dashboard/DashboardPage';
+import { NewWorkspacePage } from './pages/dashboard/NewWorkspacePage';
 import './components/KeyGate.css';
 import './App.css';
 
@@ -23,6 +25,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/pay/:id" element={<CheckoutPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/dashboard/workspaces/new" element={<NewWorkspacePage />} />
         <Route path="/app" element={<AppShell />}>
           <Route index element={<OverviewPage />} />
           <Route path="payments" element={<CollectPaymentsPage />} />

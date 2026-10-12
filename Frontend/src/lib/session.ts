@@ -6,6 +6,7 @@ export type WalletSession = {
   name: string;
   wallet_address: string;
   payout_address: string | null;
+  workspace_ready: boolean;
 };
 
 export type AuthChallenge = {

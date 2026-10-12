@@ -10,8 +10,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/v1': 'http://localhost:4000',
-      '/dev': 'http://localhost:4000',
+      '/v1': process.env.HYPERTRON_API_ORIGIN ?? 'http://localhost:4010',
+      '/dev': process.env.HYPERTRON_API_ORIGIN ?? 'http://localhost:4010',
     },
   },
 });

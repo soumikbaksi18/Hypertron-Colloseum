@@ -44,16 +44,27 @@ enum PaymentLinkStatus {
   canceled
 }
 
-/// The business that owns agents and grants them bounded financial authority.
+/// A workspace. One wallet can own many; each has its own agents, links, and keys.
 model Business {
   id        String   @id @default(cuid())
   name      String
-  /// Phantom / Solana address that signed in. One business per wallet.
-  walletPubkey  String? @unique
+  /// Phantom / Solana address that owns this workspace.
+  walletPubkey  String?
   /// Where customers send funds for invoices.
   payoutAddress String?
   /// Reconciliation viewing key (public half). Secrets never live server-side.
   viewPub   String?
+  /// False for the empty record created at sign-in, until the setup form is finished.
+  setupComplete Boolean @default(false)
+  workspaceType String?
+  website       String?
+  teamSize      String?
+  logoDataUrl   String? @db.Text
+  logoName      String?
+  companyContext String? @db.Text
+  invitedMembers Json?
+  tier          String   @default("Starter")
+  lastAccessedAt DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -64,6 +75,7 @@ model Business {
   paymentLinks     PaymentLink[]
   sessions         DashboardSession[]
 
+  @@index([walletPubkey])
   @@map("businesses")
 }
 

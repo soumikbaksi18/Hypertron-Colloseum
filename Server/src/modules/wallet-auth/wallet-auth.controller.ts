@@ -79,6 +79,7 @@ export class WalletAuthController {
       name: business.name,
       wallet_address: business.walletPubkey,
       payout_address: business.payoutAddress,
+      workspace_ready: business.setupComplete,
     };
   }
 }

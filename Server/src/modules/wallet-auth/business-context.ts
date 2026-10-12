@@ -5,4 +5,5 @@ export interface BusinessContext {
   walletPubkey: string;
   name: string;
   payoutAddress: string | null;
+  setupComplete: boolean;
 }

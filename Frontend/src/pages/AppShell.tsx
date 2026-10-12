@@ -1,4 +1,4 @@
-import { NavLink, Outlet, Link } from 'react-router-dom';
+import { NavLink, Outlet, Link, Navigate } from 'react-router-dom';
 
 import { PhantomGate } from '../components/PhantomGate';
 import { useWalletSession } from '../context/WalletContext';
@@ -24,12 +24,20 @@ export function AppShell() {
     return <PhantomGate />;
   }
 
+  if (!session.workspace_ready) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
     <div className="app-shell">
       <aside className="app-sidebar">
         <Link to="/" className="app-sidebar-brand">
           <img src="/media/logo_white.png" alt="" width={28} height={28} />
           <span>Hypertron</span>
+        </Link>
+
+        <Link to="/dashboard" className="app-workspace-switch">
+          ← All workspaces
         </Link>
 
         <p className="app-sidebar-eyebrow">Workspace</p>

@@ -188,47 +188,74 @@ export class WalletSessionService {
     return SESSION_TTL_MS;
   }
 
-  private async upsertBusiness(walletPubkey: string): Promise<BusinessContext> {
-    const existing = await this.prisma.business.findUnique({
-      where: { walletPubkey },
-    });
-    if (existing) {
-      return this.toContext(existing);
+  async bindSession(token: string | undefined, businessId: string): Promise<void> {
+    if (!token) {
+      throw new AuthenticationException(
+        'Sign in with Phantom to continue.',
+        'not_signed_in',
+      );
     }
+    const updated = await this.prisma.dashboardSession.updateMany({
+      where: { tokenHash: this.hashToken(token) },
+      data: { businessId },
+    });
+    if (updated.count !== 1) {
+      throw new AuthenticationException(
+        'Sign in with Phantom to continue.',
+        'not_signed_in',
+      );
+    }
+  }
+
+  private async upsertBusiness(walletPubkey: string): Promise<BusinessContext> {
+    const existing = await this.prisma.business.findMany({
+      where: { walletPubkey },
+      orderBy: { lastAccessedAt: 'desc' },
+    });
+    const ready = existing.find((business) => business.setupComplete);
+    if (ready) return this.toContext(ready);
+    if (existing[0]) return this.toContext(existing[0]);
 
     const created = await this.prisma.business.create({
       data: {
         name: 'Untitled business',
         walletPubkey,
-        payoutAddress: walletPubkey,
-        agents: {
-          create: {
-            publicId: publicId('agt'),
-            label: 'workspace-agent',
-            currency: 'USDC',
-            perTxLimitMinor: USDC(5_000),
-            dailyLimitMinor: USDC(20_000),
-            autoApproveLimitMinor: USDC(1_000),
-          },
-        },
-        allowedPayees: {
-          create: [
-            { payeeRef: 'supplier_acme', label: 'Acme Industrial Supply' },
-            { payeeRef: 'supplier_globex', label: 'Globex Logistics' },
-          ],
-        },
-        webhookEndpoints: {
-          create: {
-            publicId: publicId('whe'),
-            url: `http://localhost:${process.env.PORT ?? 4000}/dev/webhook-sink`,
-            signingSecret: crypto.randomBytes(32).toString('hex'),
-            events: [],
-          },
-        },
+        setupComplete: false,
+        ...this.workspaceProvision(walletPubkey),
       },
     });
 
     return this.toContext(created);
+  }
+
+  workspaceProvision(walletPubkey: string) {
+    return {
+      payoutAddress: walletPubkey,
+      agents: {
+        create: {
+          publicId: publicId('agt'),
+          label: 'workspace-agent',
+          currency: 'USDC',
+          perTxLimitMinor: USDC(5_000),
+          dailyLimitMinor: USDC(20_000),
+          autoApproveLimitMinor: USDC(1_000),
+        },
+      },
+      allowedPayees: {
+        create: [
+          { payeeRef: 'supplier_acme', label: 'Acme Industrial Supply' },
+          { payeeRef: 'supplier_globex', label: 'Globex Logistics' },
+        ],
+      },
+      webhookEndpoints: {
+        create: {
+          publicId: publicId('whe'),
+          url: `http://localhost:${process.env.PORT ?? 4000}/dev/webhook-sink`,
+          signingSecret: crypto.randomBytes(32).toString('hex'),
+          events: [],
+        },
+      },
+    };
   }
 
   private toContext(business: {
@@ -236,12 +263,14 @@ export class WalletSessionService {
     name: string;
     walletPubkey: string | null;
     payoutAddress: string | null;
+    setupComplete: boolean;
   }): BusinessContext {
     return {
       businessId: business.id,
       walletPubkey: business.walletPubkey ?? '',
       name: business.name,
       payoutAddress: business.payoutAddress,
+      setupComplete: business.setupComplete,
     };
   }
 

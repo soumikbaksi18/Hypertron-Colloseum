@@ -53,6 +53,18 @@
   border-radius: 4px;
 }
 
+.app-workspace-switch {
+  margin: 0.15rem 0.75rem 0.85rem;
+  color: rgba(231, 182, 109, 0.92);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.app-workspace-switch:hover {
+  color: #f3cb88;
+}
+
 .app-sidebar-eyebrow {
   margin: 0 0.75rem 0.35rem;
   font-family: var(--mono);
