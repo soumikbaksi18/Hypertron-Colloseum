@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ExplorerTxLink } from '../../components/ExplorerTxLink';
 import { useWalletSession } from '../../context/WalletContext';
+import { DepositPreflightError } from '../../lib/deposit-preflight';
 import { ApiError } from '../../lib/http';
 import { money } from '../../lib/format';
 import {
@@ -13,6 +14,8 @@ import {
   syncIncomingNotes,
 } from '../../lib/private-pay';
 import { loadShieldKeys } from '../../lib/shield-keys';
+import { formatUsdcMinor, parseUsdcInput } from '../../lib/usdc-amount';
+import { useDepositPreflight } from '../../lib/use-deposit-preflight';
 import { walletApi } from '../../lib/wallet';
 
 export function WalletPage() {
@@ -25,7 +28,12 @@ export function WalletPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [tx, setTx] = useState<string | null>(null);
+  const [confirmDeposit, setConfirmDeposit] = useState(false);
   const keys = loadShieldKeys();
+  const { preflight, checking } = useDepositPreflight({
+    payer: session?.wallet_address,
+    amountInput: amount,
+  });
 
   const reload = useCallback(async () => {
     if (keys) await syncIncomingNotes(keys);
@@ -51,14 +59,20 @@ export function WalletPage() {
       setError('Import shield keys in Settings, or sign in again on this browser.');
       return;
     }
-    const dollars = Number(amount);
-    if (!Number.isFinite(dollars) || dollars <= 0) {
-      setError('Enter an amount greater than zero.');
+    const parsed = parseUsdcInput(amount);
+    if (!parsed.ok) {
+      setError(parsed.error);
       return;
     }
-    setBusy('Waiting for Phantom…');
+    if (!confirmDeposit) {
+      setConfirmDeposit(true);
+      setError(null);
+      return;
+    }
+    setBusy('Checking wallet…');
     setError(null);
     setTx(null);
+    setConfirmDeposit(false);
     try {
       const phantom = requirePhantom();
       const connected = await phantom.connect();
@@ -66,13 +80,23 @@ export function WalletPage() {
       const result = await addMoney({
         keys,
         payer: connected.publicKey.toBase58(),
-        amountMinor: BigInt(Math.round(dollars * 1_000_000)),
+        expectedPayer: walletAddress,
+        amountMinor: parsed.minor,
         signTransaction: (tx) => phantom.signTransaction(tx),
       });
       setTx(result.txSignature);
+      if (!result.note) {
+        setError(
+          'Deposit submitted. It stays pending until the transaction confirms on-chain. Recovery material is saved in this browser.',
+        );
+      }
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Add money failed.');
+      setError(
+        err instanceof DepositPreflightError || err instanceof ApiError || err instanceof Error
+          ? err.message
+          : 'Add money failed.',
+      );
     } finally {
       setBusy(null);
     }
@@ -83,14 +107,14 @@ export function WalletPage() {
       setError('Import shield keys in Settings, or sign in again on this browser.');
       return;
     }
-    const dollars = Number(amount);
+    const parsed = parseUsdcInput(amount);
     const handle = sendTo.trim();
     if (!handle) {
       setError('Enter a Hypertron ID (ht_…).');
       return;
     }
-    if (!Number.isFinite(dollars) || dollars <= 0) {
-      setError('Enter an amount greater than zero.');
+    if (!parsed.ok) {
+      setError(parsed.error);
       return;
     }
     setBusy('Looking up ID…');
@@ -101,7 +125,7 @@ export function WalletPage() {
       setBusy('Proving a private send…');
       const signature = await sendPrivate({
         keys,
-        amountMinor: BigInt(Math.round(dollars * 1_000_000)),
+        amountMinor: parsed.minor,
         recipientOwnerPk: dest.owner_pk,
         recipientView: dest.view_pub,
       });
@@ -119,9 +143,9 @@ export function WalletPage() {
       setError('Import shield keys in Settings, or sign in again on this browser.');
       return;
     }
-    const dollars = Number(amount);
-    if (!Number.isFinite(dollars) || dollars <= 0) {
-      setError('Enter an amount greater than zero.');
+    const parsed = parseUsdcInput(amount);
+    if (!parsed.ok) {
+      setError(parsed.error);
       return;
     }
     setBusy('Proving cash out…');
@@ -130,7 +154,7 @@ export function WalletPage() {
     try {
       const signature = await cashOut({
         keys,
-        amountMinor: BigInt(Math.round(dollars * 1_000_000)),
+        amountMinor: parsed.minor,
         destination: walletAddress,
       });
       setTx(signature);
@@ -211,26 +235,40 @@ export function WalletPage() {
             <input
               className="gate-input"
               value={amount}
-              onChange={(event) => setAmount(event.target.value)}
+              onChange={(event) => {
+                setConfirmDeposit(false);
+                setAmount(event.target.value);
+              }}
               inputMode="decimal"
             />
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
             {buckets.map((minor) => {
-              const dollars = (Number(minor) / 1_000_000).toString();
+              const label = formatUsdcMinor(BigInt(minor));
               return (
                 <button
                   key={minor}
                   type="button"
                   className="landing-cta-secondary"
                   style={{ height: '1.9rem', fontSize: '0.85rem' }}
-                  onClick={() => setAmount(dollars)}
+                  onClick={() => setAmount(label)}
                 >
-                  {dollars}
+                  {label}
                 </button>
               );
             })}
           </div>
+          {preflight && !preflight.ok && !checking ? (
+            <p className="gate-error" role="alert">
+              {preflight.error}
+            </p>
+          ) : null}
+          {confirmDeposit && preflight?.ok ? (
+            <p style={{ margin: 0, color: 'var(--ink-dim)', fontSize: '0.95rem' }}>
+              This deposit is public: {preflight.disclosure.amount} from your
+              Phantom wallet, with the confirmation time. Sends after that stay private.
+            </p>
+          ) : null}
           <label className="gate-field">
             <span className="eyebrow">Send to Hypertron ID</span>
             <input
@@ -245,10 +283,10 @@ export function WalletPage() {
             <button
               type="button"
               className="gate-submit"
-              disabled={Boolean(busy)}
+              disabled={Boolean(busy) || checking || Boolean(preflight && !preflight.ok)}
               onClick={() => void onAddMoney()}
             >
-              {busy ? busy : 'Add money'}
+              {busy ? busy : confirmDeposit ? 'Confirm public deposit' : 'Add money'}
             </button>
             <button
               type="button"

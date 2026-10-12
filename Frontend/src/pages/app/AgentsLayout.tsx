@@ -30,8 +30,8 @@ function AgentsInner() {
           </p>
         </header>
         <p style={{ margin: '0 0 1rem' }}>
-          <Link to="/app/developers" className="landing-cta-secondary">
-            Issue a key
+          <Link to="/app" className="landing-cta-secondary">
+            Open workspace for a key
           </Link>
         </p>
         <KeyGate error={console_.gateError} onSubmit={console_.signIn} />

@@ -6,6 +6,7 @@ export type BookNote = {
   v: string;
   leafIndex: number;
   blob?: string | null;
+  status?: 'pending' | 'spendable';
 };
 
 function read(): BookNote[] {
@@ -38,7 +39,12 @@ export function markNoteSpent(commitment: string): void {
 }
 
 export function unspentNotes(): BookNote[] {
-  return read().filter((row) => row.k && BigInt(row.v) > 0n);
+  return read().filter(
+    (row) =>
+      row.k &&
+      BigInt(row.v) > 0n &&
+      row.status !== 'pending',
+  );
 }
 
 export function privateBalance(): bigint {

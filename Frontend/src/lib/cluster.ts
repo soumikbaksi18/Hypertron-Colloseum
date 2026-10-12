@@ -29,6 +29,38 @@ export function indexerNetwork(): string {
   );
 }
 
+/** Published Solana genesis hashes. localnet is validator-specific. */
+export const CLUSTER_GENESIS: Record<SolanaCluster, string | null> = {
+  devnet: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG',
+  mainnet: '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',
+  localnet: null,
+};
+
+/** Cluster USDC mints this app is willing to vault. localnet comes from pool config only. */
+export const CLUSTER_USDC_MINT: Partial<Record<SolanaCluster, string>> = {
+  devnet: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+};
+
+export function parseCluster(value: string | undefined | null): SolanaCluster | null {
+  const raw = (value ?? '').trim().toLowerCase();
+  if (raw === 'devnet' || raw === 'devnet-beta') return 'devnet';
+  if (raw === 'mainnet' || raw === 'mainnet-beta') return 'mainnet';
+  if (raw === 'localnet' || raw === 'localhost' || raw === 'local') return 'localnet';
+  return null;
+}
+
+export function clusterLabel(cluster: SolanaCluster): string {
+  if (cluster === 'mainnet') return 'Solana mainnet';
+  if (cluster === 'localnet') return 'Solana localnet';
+  return 'Solana devnet';
+}
+
+export function clusterSwitchInstruction(cluster: SolanaCluster): string {
+  if (cluster === 'devnet') return 'Switch Phantom to Devnet.';
+  if (cluster === 'mainnet') return 'Switch Phantom to Mainnet.';
+  return 'Switch Phantom to Localhost (http://127.0.0.1:8899).';
+}
+
 export function phantomPayHint(): string {
   const cluster = solanaCluster();
   if (cluster === 'devnet') {

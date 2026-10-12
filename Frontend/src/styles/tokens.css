@@ -106,14 +106,14 @@ button {
 
 /* The marketing page uses utility classes for type, color, and fill.
    These resets stay off while that page is mounted. */
-:where(body:not(:has(.landing-root))) button,
-:where(body:not(:has(.landing-root))) input,
-:where(body:not(:has(.landing-root))) select {
+:where(body:not(:has(.landing-root, .dash-root))) button,
+:where(body:not(:has(.landing-root, .dash-root))) input,
+:where(body:not(:has(.landing-root, .dash-root))) select {
   font: inherit;
   color: inherit;
 }
 
-:where(body:not(:has(.landing-root))) button {
+:where(body:not(:has(.landing-root, .dash-root))) button {
   border: none;
   background: none;
 }

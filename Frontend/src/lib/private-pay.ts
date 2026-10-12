@@ -1,5 +1,15 @@
 import { Transaction } from '@solana/web3.js';
 
+import { assertDepositCommitments, sameFieldHex } from './commitment';
+import {
+  DepositPreflightError,
+  runDepositPreflight,
+} from './deposit-preflight';
+import {
+  clearPendingDeposit,
+  recoverableDeposits,
+  upsertPendingDeposit,
+} from './deposit-pending';
 import {
   markNoteSpent,
   pickNotesForAmount,
@@ -10,8 +20,10 @@ import {
 } from './note-book';
 import { bytesToBase64, getPhantom } from './phantom';
 import {
+  computeCommitment,
   decryptNote,
   encryptNote,
+  isNoteBlob,
   proveDeposit,
   proveTransfer2,
   proveTransferOne,
@@ -50,24 +62,76 @@ async function waitForLeaf(commitment: string): Promise<number> {
   return leafIndexOf(commitment);
 }
 
+export async function reconcilePendingDeposits(keys: ShieldKeys): Promise<void> {
+  for (const pending of recoverableDeposits()) {
+    try {
+      const remote = pending.pendingId
+        ? await walletApi.depositStatus(pending.pendingId).catch(() => null)
+        : null;
+      const { leaves } = await walletApi.leaves().catch(() => ({ leaves: [] as string[] }));
+      const leafIndex = leaves.findIndex((leaf) =>
+        sameFieldHex(leaf, pending.commitment),
+      );
+      const local = await computeCommitment({
+        ownerPk: keys.ownerPk,
+        k: pending.k,
+        amount: pending.v,
+      });
+      const onChain = remote?.commitment ?? (leafIndex >= 0 ? pending.commitment : null);
+      if (remote?.status === 'failed' || remote?.status === 'expired') {
+        upsertPendingDeposit({ ...pending, status: remote.status });
+        continue;
+      }
+      const confirmed =
+        remote?.status === 'confirmed' && remote.leaf_index !== undefined
+          ? remote.leaf_index
+          : leafIndex;
+      if (confirmed < 0) continue;
+      assertDepositCommitments({
+        local,
+        proved: pending.commitment,
+        prepared: remote?.commitment ?? pending.commitment,
+        onChain,
+        localAmount: pending.v,
+        preparedAmount: remote?.amount ?? pending.v,
+      });
+      upsertNote({
+        commitment: pending.commitment,
+        k: pending.k,
+        v: pending.v,
+        leafIndex: confirmed,
+        blob: pending.blob,
+        status: 'spendable',
+      });
+      clearPendingDeposit(pending.commitment);
+    } catch {
+      // Keep recovery material until the leaf is independently confirmed.
+    }
+  }
+}
+
 export async function syncIncomingNotes(keys: ShieldKeys): Promise<void> {
+  await reconcilePendingDeposits(keys);
   const remote = await walletApi.notes().catch(() => ({ notes: [] }));
   const known = new Set(unspentNotes().map((note) => note.commitment));
   for (const row of remote.notes) {
-    if (known.has(row.commitment) || !row.encrypted_blob) continue;
-    try {
-      const opened = await decryptNote(keys.viewSecret, row.encrypted_blob);
-      if (opened.ownerPk !== keys.ownerPk) continue;
-      upsertNote({
-        commitment: row.commitment,
-        k: opened.k,
-        v: opened.v,
-        leafIndex: row.leaf_index,
-        blob: row.encrypted_blob,
-      });
-    } catch {
-      // Blob is for a different viewing key.
-    }
+    if (known.has(row.commitment) || !isNoteBlob(row.encrypted_blob)) continue;
+    const opened = await decryptNote(keys.viewSecret, row.encrypted_blob);
+    if (!opened || opened.ownerPk !== keys.ownerPk) continue;
+    const local = await computeCommitment({
+      ownerPk: keys.ownerPk,
+      k: opened.k,
+      amount: opened.v,
+    });
+    if (!sameFieldHex(local, row.commitment)) continue;
+    upsertNote({
+      commitment: row.commitment,
+      k: opened.k,
+      v: opened.v,
+      leafIndex: row.leaf_index,
+      blob: row.encrypted_blob,
+      status: 'spendable',
+    });
   }
 }
 
@@ -75,27 +139,65 @@ export async function addMoney(input: {
   keys: ShieldKeys;
   payer: string;
   amountMinor: bigint;
+  expectedPayer?: string;
   signTransaction: (tx: Transaction) => Promise<{ serialize: () => Uint8Array }>;
-}): Promise<{ txSignature: string; note: BookNote }> {
+}): Promise<{
+  txSignature: string;
+  status: string;
+  note: BookNote | null;
+}> {
+  const preflight = await runDepositPreflight({
+    payer: input.payer,
+    amountMinor: input.amountMinor,
+    expectedPayer: input.expectedPayer,
+  });
+  if (!preflight.ok) {
+    throw new DepositPreflightError(preflight);
+  }
+  const amountMinor = preflight.amountSnapped;
+  const amount = amountMinor.toString();
   const k = randomFrHex();
   const proved = await proveDeposit({
     ownerPk: input.keys.ownerPk,
     k,
-    amount: input.amountMinor.toString(),
+    amount,
+  });
+  const local = await computeCommitment({
+    ownerPk: input.keys.ownerPk,
+    k,
+    amount,
   });
   const blob =
     (await encryptNote({
       viewPub: input.keys.viewPub,
       ownerPk: input.keys.ownerPk,
       k,
-      amount: input.amountMinor.toString(),
-    })) ?? undefined;
+      amount,
+    })) ?? null;
   const prepared = await walletApi.prepareDeposit({
     payer_pubkey: input.payer,
-    amount: input.amountMinor.toString(),
+    amount,
     commitment: proved.commitment,
     proof: proved.proof,
+    blob: blob ?? undefined,
+  });
+  assertDepositCommitments({
+    local,
+    proved: proved.commitment,
+    prepared: prepared.commitment,
+    localAmount: amount,
+    preparedAmount: prepared.amount,
+  });
+  upsertPendingDeposit({
+    pendingId: prepared.pending_id,
+    commitment: proved.commitment,
+    k,
+    v: amount,
+    ownerPk: input.keys.ownerPk,
     blob,
+    txSignature: null,
+    status: 'prepared',
+    createdAt: Date.now(),
   });
   const raw = Uint8Array.from(atob(prepared.transaction), (ch) =>
     ch.charCodeAt(0),
@@ -104,20 +206,69 @@ export async function addMoney(input: {
   const serialized = signed.serialize();
   const bytes =
     serialized instanceof Uint8Array ? serialized : Uint8Array.from(serialized);
-  const { tx_signature } = await walletApi.broadcastDeposit({
-    pending_id: prepared.pending_id,
-    signed_transaction: bytesToBase64(bytes),
-  });
-  const leafIndex = await waitForLeaf(prepared.commitment);
-  const note: BookNote = {
-    commitment: prepared.commitment,
+  let result: {
+    tx_signature: string;
+    status: string;
+    commitment: string;
+    amount: string;
+    leaf_index?: number;
+  };
+  try {
+    result = await walletApi.broadcastDeposit({
+      pending_id: prepared.pending_id,
+      signed_transaction: bytesToBase64(bytes),
+    });
+  } catch (error) {
+    upsertPendingDeposit({
+      pendingId: prepared.pending_id,
+      commitment: proved.commitment,
+      k,
+      v: amount,
+      ownerPk: input.keys.ownerPk,
+      blob,
+      txSignature: null,
+      status: 'pending',
+      createdAt: Date.now(),
+    });
+    throw error;
+  }
+  upsertPendingDeposit({
+    pendingId: prepared.pending_id,
+    commitment: proved.commitment,
     k,
-    v: prepared.amount,
-    leafIndex,
-    blob: blob ?? null,
+    v: amount,
+    ownerPk: input.keys.ownerPk,
+    blob,
+    txSignature: result.tx_signature,
+    status: result.status === 'confirmed' ? 'submitted' : 'pending',
+    createdAt: Date.now(),
+  });
+  if (result.status !== 'confirmed' || result.leaf_index === undefined) {
+    return {
+      txSignature: result.tx_signature,
+      status: result.status,
+      note: null,
+    };
+  }
+  assertDepositCommitments({
+    local,
+    proved: proved.commitment,
+    prepared: prepared.commitment,
+    onChain: result.commitment,
+    localAmount: amount,
+    preparedAmount: result.amount,
+  });
+  const note: BookNote = {
+    commitment: proved.commitment,
+    k,
+    v: amount,
+    leafIndex: result.leaf_index,
+    blob,
+    status: 'spendable',
   };
   upsertNote(note);
-  return { txSignature: tx_signature, note };
+  clearPendingDeposit(proved.commitment);
+  return { txSignature: result.tx_signature, status: 'confirmed', note };
 }
 
 export async function sendPrivate(input: {
@@ -151,8 +302,16 @@ export async function sendPrivate(input: {
       recipientView: input.recipientView,
       selfView: input.keys.viewPub,
     });
+    const recipientBlob =
+      (isNoteBlob(proved.note_1) ? proved.note_1 : null) ??
+      (await encryptNote({
+        viewPub: input.recipientView,
+        ownerPk: input.recipientOwnerPk,
+        k: out1K,
+        amount: input.amountMinor.toString(),
+      }));
     const changeBlob =
-      proved.note_2 ??
+      (isNoteBlob(proved.note_2) ? proved.note_2 : null) ??
       (change > 0n
         ? await encryptNote({
             viewPub: input.keys.viewPub,
@@ -167,8 +326,8 @@ export async function sendPrivate(input: {
       out_cm1: proved.out_cm1,
       out_cm2: proved.out_cm2,
       proof: proved.proof,
-      note_1: proved.note_1 ?? '',
-      note_2: proved.note_2 ?? changeBlob ?? '',
+      note_1: recipientBlob ?? '',
+      note_2: changeBlob ?? '',
       spent_cm: note.commitment,
       out1_owner_pk: input.recipientOwnerPk,
       out1_v: input.amountMinor.toString(),
@@ -211,8 +370,16 @@ export async function sendPrivate(input: {
     out2V: change.toString(),
     recipientView: input.recipientView,
   });
+  const recipientBlob =
+    (isNoteBlob(proved.note_1) ? proved.note_1 : null) ??
+    (await encryptNote({
+      viewPub: input.recipientView,
+      ownerPk: input.recipientOwnerPk,
+      k: out1K,
+      amount: input.amountMinor.toString(),
+    }));
   const changeBlob =
-    proved.note_2 ??
+    (isNoteBlob(proved.note_2) ? proved.note_2 : null) ??
     (await encryptNote({
       viewPub: input.keys.viewPub,
       ownerPk: input.keys.ownerPk,
@@ -226,8 +393,8 @@ export async function sendPrivate(input: {
     out_cm1: proved.out_cm1,
     out_cm2: proved.out_cm2,
     proof: proved.proof,
-    note_1: proved.note_1 ?? '',
-    note_2: proved.note_2 ?? changeBlob ?? '',
+    note_1: recipientBlob ?? '',
+    note_2: changeBlob ?? '',
     spent_cm1: a.commitment,
     spent_cm2: b.commitment,
     out1_owner_pk: input.recipientOwnerPk,

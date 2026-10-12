@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, MaxLength, MinLength, Min } from 'class-validator';
 import { PublicKey } from '@solana/web3.js';
@@ -9,7 +9,7 @@ import { publicId } from '../../../common/utils/crypto.util';
 import { WalletSessionGuard } from '../../wallet-auth/wallet-session.guard';
 import { CurrentBusiness } from '../../wallet-auth/current-business.decorator';
 import type { BusinessContext } from '../../wallet-auth/business-context';
-import { bytesToHex, randomFrHex } from './pool.bytes';
+import { bytesToHex, isNoteBlob, randomFrHex } from './pool.bytes';
 import { amountBuckets, snapAmountUp } from './pool.denoms';
 import { PoolProver } from './pool.prover';
 import {
@@ -59,9 +59,25 @@ class DecryptDto {
   blob!: string;
 }
 
+class DiscloseDto {
+  @IsString()
+  @MinLength(64)
+  @MaxLength(66)
+  view_secret!: string;
+}
+
 class EncryptDto {
   @IsString()
   recipient_view!: string;
+  @IsString()
+  owner_pk!: string;
+  @IsString()
+  k!: string;
+  @IsString()
+  v!: string;
+}
+
+class CommitmentDto {
   @IsString()
   owner_pk!: string;
   @IsString()
@@ -251,6 +267,7 @@ export class PoolHttpController {
     return {
       mint: cfg.mint,
       program_id: cfg.programId,
+      network: cfg.network,
       indexer_url: cfg.indexerUrl,
       withdraw_delay_sec: cfg.withdrawDelaySec,
       relay_interval_ms: cfg.relayIntervalMs,
@@ -279,6 +296,17 @@ export class PoolHttpController {
     return { owner_pk: await this.prover.ownerPk(body.spend_sk) };
   }
 
+  @Post('commitment')
+  async commitment(@Body() body: CommitmentDto) {
+    return {
+      commitment: await this.prover.commitment(
+        body.owner_pk,
+        body.k,
+        BigInt(body.v),
+      ),
+    };
+  }
+
   @Post('encrypt')
   async encrypt(@Body() body: EncryptDto) {
     const blob = await this.prover.encryptNote({
@@ -293,11 +321,16 @@ export class PoolHttpController {
   @Post('decrypt')
   @UseGuards(WalletSessionGuard)
   async decrypt(@Body() body: DecryptDto) {
-    const note = await this.prover.decryptNote(body.view_secret, body.blob);
-    if (!note) {
-      throw new InvalidRequestException('decrypt_failed', 'Blob is not for this viewing key.');
-    }
-    return note;
+    const note = isNoteBlob(body.blob)
+      ? await this.prover.decryptNote(body.view_secret, body.blob)
+      : null;
+    return { note };
+  }
+
+  @Post('disclose')
+  @UseGuards(WalletSessionGuard)
+  async disclose(@Body() body: DiscloseDto) {
+    return this.pool.disclose(body.view_secret);
   }
 
   @Post('prove/deposit')
@@ -433,6 +466,13 @@ export class PoolHttpController {
       );
     }
     const amount = snapAmountUp(BigInt(body.amount));
+    if (amount.toString() !== body.amount.trim()) {
+      throw new InvalidRequestException(
+        'amount_mismatch',
+        'Prove the snapped USDC amount before preparing the deposit.',
+        'amount',
+      );
+    }
     const pendingId = publicId('dep');
     try {
       const prepared = await this.pool.prepareCustomerDeposit({
@@ -459,20 +499,44 @@ export class PoolHttpController {
     @Body() body: BroadcastDepositDto,
   ) {
     try {
-      const txSignature = await this.pool.broadcastSignedDeposit(
-        body.signed_transaction,
-      );
-      await this.pool.finalizeCustomerDeposit({
+      return await this.pool.submitCustomerDeposit({
         paymentLinkId: body.pending_id,
-        txSignature,
+        signedTransaction: body.signed_transaction,
         viewPub: business.viewPub,
         destination: business.walletPubkey,
       });
-      return { tx_signature: txSignature };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new InvalidRequestException('pool_broadcast_failed', message);
     }
+  }
+
+  @Get('deposits/:pendingId')
+  @UseGuards(WalletSessionGuard)
+  async depositStatus(
+    @CurrentBusiness() business: BusinessContext,
+    @Param('pendingId') pendingId: string,
+  ) {
+    const pending = await this.pool.peekCustomerDeposit(pendingId);
+    if (!pending) {
+      throw new InvalidRequestException(
+        'deposit_not_found',
+        'No pending deposit with that id.',
+      );
+    }
+    if (!pending.txSignature) {
+      return {
+        status: pending.status,
+        commitment: pending.commitment,
+        amount: pending.amount.toString(),
+      };
+    }
+    return this.pool.finalizeCustomerDeposit({
+      paymentLinkId: pendingId,
+      txSignature: pending.txSignature,
+      viewPub: business.viewPub,
+      destination: business.walletPubkey,
+    });
   }
 
   @Post('withdraw')

@@ -23,6 +23,10 @@ import { loadConfig } from '../../../common/config/configuration';
 import { decodeMerkleTree, decodePoolState } from './pool.accounts';
 import type { DecodedMerkleTree, DecodedPoolState } from './pool.accounts';
 import { hexToFixed } from './pool.bytes';
+import {
+  classifySignatureStatus,
+  type DepositTxOutcome,
+} from './deposit-confirm';
 import { POOL_PROGRAM_ID, VK_ID } from './pool.constants';
 import {
   depositIx,
@@ -447,7 +451,7 @@ export class PoolClient {
     }
   }
 
-  async sendSigned(rawBase64: string): Promise<string> {
+  async sendRawSigned(rawBase64: string): Promise<string> {
     const raw = Buffer.from(rawBase64, 'base64');
     if (raw.length < 64 || raw.length > 4096) {
       throw new Error('signed deposit transaction is the wrong size');
@@ -456,12 +460,33 @@ export class PoolClient {
       skipPreflight: false,
       preflightCommitment: 'confirmed',
     });
+    this.logger.log(`broadcast ${sig}`);
+    return sig;
+  }
+
+  async signatureOutcome(
+    signature: string,
+    expired = false,
+  ): Promise<DepositTxOutcome> {
+    const { value } = await this.rpc().getSignatureStatuses([signature], {
+      searchTransactionHistory: true,
+    });
+    const row = value[0];
+    return classifySignatureStatus({
+      found: Boolean(row),
+      confirmationStatus: row?.confirmationStatus ?? null,
+      err: row?.err ?? null,
+      expired,
+    });
+  }
+
+  async sendSigned(rawBase64: string): Promise<string> {
+    const sig = await this.sendRawSigned(rawBase64);
     const latest = await this.rpc().getLatestBlockhash();
     await this.rpc().confirmTransaction(
       { signature: sig, ...latest },
       'confirmed',
     );
-    this.logger.log(`broadcast ${sig}`);
     return sig;
   }
 }

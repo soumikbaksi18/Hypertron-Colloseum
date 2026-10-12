@@ -6,9 +6,10 @@ import { shortenAddress } from '../lib/phantom';
 import './AppShell.css';
 
 const NAV = [
-  { to: '/app', end: true, label: 'Wallet', hint: 'Private USDC' },
-  { to: '/app/payments', label: 'Invoices', hint: 'Request payment' },
-  { to: '/app/settings', label: 'Settings', hint: 'Keys and payout' },
+  { to: '/app', end: true, label: 'Workspaces', hint: 'Account hub' },
+  { to: '/app/agents', end: true, label: 'Agents', hint: 'Authority' },
+  { to: '/app/agents/request', label: 'Request', hint: 'New intent' },
+  { to: '/app/agents/approvals', label: 'Approvals', hint: 'Human gate' },
 ] as const;
 
 export function AppShell() {

@@ -56,6 +56,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    strictPort: true,
     proxy: {
       '/v1': 'http://localhost:4000',
       '/dev': 'http://localhost:4000',

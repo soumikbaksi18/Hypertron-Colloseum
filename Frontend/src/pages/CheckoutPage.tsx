@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import { ApiError } from '../lib/http';
-import { money } from '../lib/format';
-import { paymentLinksApi, type PaymentLink } from '../lib/payment-links';
-import { phantomClusterError } from '../lib/cluster';
 import { ExplorerTxLink } from '../components/ExplorerTxLink';
 import { useWalletSession } from '../context/WalletContext';
-import { loadShieldKeys } from '../lib/shield-keys';
+import { phantomClusterError } from '../lib/cluster';
+import { DepositPreflightError } from '../lib/deposit-preflight';
+import { money } from '../lib/format';
+import { ApiError } from '../lib/http';
+import { paymentLinksApi, type PaymentLink } from '../lib/payment-links';
 import {
   addMoney,
   privateBalance,
@@ -15,6 +15,8 @@ import {
   sendPrivate,
   syncIncomingNotes,
 } from '../lib/private-pay';
+import { loadShieldKeys } from '../lib/shield-keys';
+import { useDepositPreflight } from '../lib/use-deposit-preflight';
 import './CheckoutPage.css';
 
 export function CheckoutPage() {
@@ -26,6 +28,14 @@ export function CheckoutPage() {
   const [busyLabel, setBusyLabel] = useState('Waiting for Phantom…');
   const [balance, setBalance] = useState('0');
   const keys = loadShieldKeys();
+  const invoiceMinor = link ? BigInt(link.amount) : 0n;
+  const privateAvail = BigInt(balance);
+  const shortfall = invoiceMinor > privateAvail ? invoiceMinor - privateAvail : 0n;
+  const { preflight, checking } = useDepositPreflight({
+    payer: session?.wallet_address,
+    amountMinor: shortfall,
+    enabled: Boolean(session && link && shortfall > 0n && link.status !== 'paid'),
+  });
 
   useEffect(() => {
     if (!id) return;
@@ -71,10 +81,11 @@ export function CheckoutPage() {
       const need = BigInt(link.amount);
       let available = privateBalance();
       if (available < need) {
-        setBusyLabel('Add money — confirm in Phantom…');
+        setBusyLabel('Checking wallet…');
         await addMoney({
           keys,
           payer: connected.publicKey.toBase58(),
+          expectedPayer: session.wallet_address,
           amountMinor: need - available,
           signTransaction: (tx) => phantom.signTransaction(tx),
         });
@@ -99,7 +110,9 @@ export function CheckoutPage() {
       setBalance(privateBalance().toString());
     } catch (err) {
       const fallback =
-        err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Payment was not completed.';
+        err instanceof DepositPreflightError || err instanceof ApiError || err instanceof Error
+          ? err.message
+          : 'Payment was not completed.';
       const looksLikeWrongCluster =
         /simulat|blockhash|network|0x1|not been approved/i.test(fallback);
       setError(looksLikeWrongCluster ? phantomClusterError() : fallback);
@@ -168,6 +181,11 @@ export function CheckoutPage() {
               Private balance {money(balance, 'USDC')}
             </p>
           )}
+          {pool && session && !paid && !funded && preflight && !preflight.ok && !checking ? (
+            <p className="gate-error" role="alert">
+              {preflight.error}
+            </p>
+          ) : null}
           {link.memo && <p style={{ margin: 0 }}>Memo: {link.memo}</p>}
           {error && <p className="gate-error">{error}</p>}
           {paid ? (
@@ -182,7 +200,16 @@ export function CheckoutPage() {
             <button
               type="button"
               className="gate-submit"
-              disabled={busy || signingIn}
+              disabled={
+                busy ||
+                signingIn ||
+                Boolean(
+                  pool &&
+                    session &&
+                    !funded &&
+                    (checking || (preflight && !preflight.ok)),
+                )
+              }
               onClick={() => void pay()}
             >
               {busy || signingIn

@@ -1,5 +1,12 @@
 import { BASE_URL, parseApi, unreachable } from './http';
 
+export function payUrl(id: string, fallback?: string | null): string {
+  if (typeof window !== 'undefined' && window.location.origin) {
+    return `${window.location.origin}/pay/${id}`;
+  }
+  return fallback || `/pay/${id}`;
+}
+
 export type PaymentLinkStatus = 'pending' | 'paid' | 'expired' | 'canceled';
 
 export type PaymentLink = {

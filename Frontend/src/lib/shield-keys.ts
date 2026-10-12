@@ -10,6 +10,15 @@ export type ShieldKeys = {
   ownerPk: string;
 };
 
+/** Read-only pack. Never include spendSk. */
+export type AuditorKeyPack = {
+  kind: 'hypertron-auditor-key';
+  handle: string | null;
+  ownerPk: string;
+  viewPub: string;
+  viewSecret: string;
+};
+
 function read(key: string): string | null {
   try {
     return localStorage.getItem(key);
@@ -57,16 +66,40 @@ export function parseShieldBackup(raw: string): ShieldKeys {
   return keys;
 }
 
-export function downloadShieldBackup(keys: ShieldKeys): void {
-  const blob = new Blob([JSON.stringify(keys, null, 2)], {
+function downloadJson(filename: string, value: unknown): void {
+  const blob = new Blob([JSON.stringify(value, null, 2)], {
     type: 'application/json',
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'hypertron-shield-keys.json';
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export function downloadShieldBackup(keys: ShieldKeys): void {
+  downloadJson('hypertron-shield-keys.json', keys);
+}
+
+export function auditorKeyPack(
+  keys: ShieldKeys,
+  handle?: string | null,
+): AuditorKeyPack {
+  return {
+    kind: 'hypertron-auditor-key',
+    handle: handle ?? null,
+    ownerPk: keys.ownerPk,
+    viewPub: keys.viewPub,
+    viewSecret: keys.viewSecret,
+  };
+}
+
+export function downloadAuditorKey(
+  keys: ShieldKeys,
+  handle?: string | null,
+): void {
+  downloadJson('hypertron-auditor-key.json', auditorKeyPack(keys, handle));
 }
 
 export function randomFrHex(): string {
