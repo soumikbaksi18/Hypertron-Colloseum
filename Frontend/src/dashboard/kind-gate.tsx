@@ -52,8 +52,9 @@ export function KindGate({ onChosen }: { onChosen: (kind: AccountKind) => void }
         Are you an individual or a business?
       </h1>
       <p className="mt-2 text-sm text-slate-500">
-        This chooses the home you see. Switch later with the Personal /
-        Workspaces toggle in the sidebar. You can still send privately either way.
+        This chooses the home you see. Switch later from the account menu on a
+        workspace, or the sidebar toggle on a personal account. You can still
+        send privately either way.
       </p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">

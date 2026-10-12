@@ -59,6 +59,7 @@ function minorSum(links: PaymentLink[]) {
 function initialsFrom(value: string) {
   const parts = value.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return 'HT';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return parts
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? '')
@@ -125,7 +126,10 @@ export async function loadOverviewStats(payoutAddress: string | null): Promise<O
     })} USDC`,
     pendingCount: pending.length,
     successfulPayments: String(paid.length),
-    successRate: created === 0 ? '99%' : `${Math.max(0, Math.round((paid.length / Math.max(started, 1)) * 100))}%`,
+    successRate:
+      created === 0
+        ? '0%'
+        : `${Math.max(0, Math.round((paid.length / Math.max(started, 1)) * 100))}%`,
     activeLinks: String(pending.length),
     collectingToday: pending.length,
     collected: `${toMajor(collectedMinor).toLocaleString('en-US', {
