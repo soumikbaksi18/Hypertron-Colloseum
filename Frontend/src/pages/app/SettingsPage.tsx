@@ -91,7 +91,8 @@ export function SettingsPage() {
         <div className="panel-body" style={{ display: 'grid', gap: '0.7rem' }}>
           <p style={{ margin: 0, color: 'var(--ink-faint)', fontSize: '0.95rem' }}>
             Spend and viewing secrets stay in this browser. Only owner_pk and
-            view_pub are published to the server.
+            view_pub are published to the server. To give someone read-only
+            access, use the Auditor tab — never this full backup.
           </p>
           <p className="mono" style={{ margin: 0, fontSize: '0.9rem', wordBreak: 'break-all' }}>
             {localKeys

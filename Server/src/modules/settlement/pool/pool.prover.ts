@@ -106,6 +106,19 @@ export class PoolProver {
     return stdout.trim();
   }
 
+  async commitment(ownerPk: string, k: string, v: bigint): Promise<string> {
+    const { stdout } = await this.run([
+      'commitment',
+      '--owner-pk',
+      ownerPk,
+      '--k',
+      k,
+      '--v',
+      v.toString(),
+    ]);
+    return stdout.trim();
+  }
+
   async encryptNote(input: {
     recipientView: string;
     ownerPk: string;

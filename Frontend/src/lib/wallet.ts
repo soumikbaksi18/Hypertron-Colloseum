@@ -7,12 +7,34 @@ export type HypertronId = {
   view_pub: string;
 };
 
+export type AuditorPayment = {
+  from: string;
+  to: string;
+  amount: string;
+  purpose: string;
+  kind: 'invoice' | 'add_money' | 'received';
+  status: 'held' | 'spent';
+  at: string;
+  leaf_index: number;
+  commitment: string;
+  tx_signature?: string | null;
+};
+
 export type RemoteNote = {
   commitment: string;
   leaf_index: number;
   value: string;
   encrypted_blob: string | null;
   payment_link_id: string | null;
+};
+
+export type PoolConfig = {
+  mint: string;
+  program_id: string;
+  network?: string;
+  amount_buckets: string[];
+  withdraw_delay_sec?: number;
+  auto_unshield?: boolean;
 };
 
 async function cookieFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -47,6 +69,15 @@ export const walletApi = {
 
   notes: () => cookieFetch<{ notes: RemoteNote[] }>('/v1/pool/notes'),
 
+  disclose: (view_secret: string) =>
+    cookieFetch<{
+      handle: string | null;
+      payments: AuditorPayment[];
+    }>('/v1/pool/disclose', {
+      method: 'POST',
+      body: JSON.stringify({ view_secret }),
+    }),
+
   leaves: async () => {
     let response: Response;
     try {
@@ -65,7 +96,7 @@ export const walletApi = {
     } catch {
       unreachable();
     }
-    return parseApi<{ amount_buckets: string[] }>(response);
+    return parseApi<PoolConfig>(response);
   },
 
   prepareDeposit: (body: {
@@ -89,10 +120,25 @@ export const walletApi = {
     pending_id: string;
     signed_transaction: string;
   }) =>
-    cookieFetch<{ tx_signature: string }>('/v1/pool/broadcast-deposit', {
+    cookieFetch<{
+      tx_signature: string;
+      status: string;
+      commitment: string;
+      amount: string;
+      leaf_index?: number;
+    }>('/v1/pool/broadcast-deposit', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  depositStatus: (pendingId: string) =>
+    cookieFetch<{
+      tx_signature?: string;
+      status: string;
+      commitment: string;
+      amount: string;
+      leaf_index?: number;
+    }>(`/v1/pool/deposits/${encodeURIComponent(pendingId)}`),
 
   transfer: (body: Record<string, string>) =>
     cookieFetch<{ tx_signature: string }>('/v1/pool/transfer', {

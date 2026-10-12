@@ -346,6 +346,8 @@ model PoolPendingDeposit {
   blindingK     String
   amount        BigInt
   encryptedBlob String?
+  txSignature   String?
+  status        String   @default("prepared")
   expiresAt     DateTime
   createdAt     DateTime @default(now())
 

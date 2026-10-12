@@ -26,6 +26,7 @@ type WasmApi = {
   ) => string;
   decrypt_note_blob: (viewSecret: string, blob: string) => string;
   owner_pk: (spendSk: string) => string;
+  commitment?: (ownerPk: string, k: string, v: string) => string;
 };
 
 function pubkeyToFrHex(address: string): string {
@@ -52,6 +53,7 @@ async function tryWasm(): Promise<WasmApi | null> {
       encrypt_note_blob: WasmApi['encrypt_note_blob'];
       decrypt_note_blob: WasmApi['decrypt_note_blob'];
       owner_pk: WasmApi['owner_pk'];
+      commitment?: WasmApi['commitment'];
     };
     if (mod.default) await mod.default();
     wasm = {
@@ -62,6 +64,7 @@ async function tryWasm(): Promise<WasmApi | null> {
       encrypt_note_blob: mod.encrypt_note_blob,
       decrypt_note_blob: mod.decrypt_note_blob,
       owner_pk: mod.owner_pk,
+      commitment: mod.commitment,
     };
     return wasm;
   } catch {
@@ -99,6 +102,23 @@ async function postJson<T>(path: string, body: unknown, cookie = false): Promise
     unreachable();
   }
   return parseApi<T>(response);
+}
+
+export async function computeCommitment(input: {
+  ownerPk: string;
+  k: string;
+  amount: string;
+}): Promise<string> {
+  const api = await tryWasm();
+  if (api?.commitment) {
+    return api.commitment(input.ownerPk, input.k, input.amount);
+  }
+  const json = await postJson<{ commitment: string }>('/v1/pool/commitment', {
+    owner_pk: input.ownerPk,
+    k: input.k,
+    v: input.amount,
+  });
+  return json.commitment;
 }
 
 export async function proveDeposit(input: {
@@ -243,7 +263,17 @@ export async function fetchLeaves(): Promise<string[]> {
   }
 }
 
+/** eph_pub (32) + ChaCha20-Poly1305 tag (16). Empty `0x` is not a note. */
+const NOTE_BLOB_MIN_BYTES = 48;
+
+export function isNoteBlob(hex: string | null | undefined): hex is string {
+  if (!hex) return false;
+  const body = hex.trim().replace(/^0x/i, '');
+  return body.length >= NOTE_BLOB_MIN_BYTES * 2 && /^[0-9a-fA-F]+$/.test(body);
+}
+
 export async function decryptNote(viewSecret: string, blob: string) {
+  if (!isNoteBlob(blob)) return null;
   const api = await tryWasm();
   if (api) {
     try {
@@ -254,14 +284,25 @@ export async function decryptNote(viewSecret: string, blob: string) {
       };
       return { ownerPk: json.owner_pk, k: json.k, v: json.v };
     } catch {
-      // Nest decrypt if the WASM module is present but this blob fails locally.
+      // WASM already ran the AEAD check. A miss means "not for this key".
+      return null;
     }
   }
-  return postJson<{ ownerPk: string; k: string; v: string }>(
-    '/v1/pool/decrypt',
-    { view_secret: viewSecret, blob },
-    true,
-  );
+  try {
+    const json = await postJson<{
+      note?: { ownerPk: string; k: string; v: string } | null;
+      ownerPk?: string;
+      k?: string;
+      v?: string;
+    }>('/v1/pool/decrypt', { view_secret: viewSecret, blob }, true);
+    if (json.note) return json.note;
+    if (json.ownerPk && json.k && json.v) {
+      return { ownerPk: json.ownerPk, k: json.k, v: json.v };
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export async function proveTransfer2(input: {

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { ApiError } from '../../lib/http';
-import { paymentLinksApi, type PaymentLink } from '../../lib/payment-links';
+import { payUrl, paymentLinksApi, type PaymentLink } from '../../lib/payment-links';
 import { ExplorerTxLink } from '../../components/ExplorerTxLink';
 import { useWalletSession } from '../../context/WalletContext';
 import { money } from '../../lib/format';
@@ -51,7 +51,7 @@ export function CollectPaymentsPage() {
         client_name: clientName.trim() || undefined,
       });
       setLinks((current) => [created, ...current]);
-      await navigator.clipboard.writeText(created.url).catch(() => undefined);
+      await navigator.clipboard.writeText(payUrl(created.id, created.url)).catch(() => undefined);
       setCopied(created.id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not create this invoice.');
@@ -166,7 +166,7 @@ export function CollectPaymentsPage() {
                     </p>
                     <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.55rem', flexWrap: 'wrap' }}>
                       <a
-                        href={link.url}
+                        href={payUrl(link.id, link.url)}
                         target="_blank"
                         rel="noreferrer"
                         className="landing-cta-secondary"
@@ -185,7 +185,7 @@ export function CollectPaymentsPage() {
                         className="landing-cta-secondary"
                         style={{ height: '2rem', fontSize: '0.95rem' }}
                         onClick={() => {
-                          void navigator.clipboard.writeText(link.url);
+                          void navigator.clipboard.writeText(payUrl(link.id, link.url));
                           setCopied(link.id);
                         }}
                       >

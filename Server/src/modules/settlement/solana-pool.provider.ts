@@ -6,12 +6,24 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PublicKey } from '@solana/web3.js';
 
 import { loadConfig } from '../../common/config/configuration';
+import { InvalidRequestException } from '../../common/exceptions/hypertron.exception';
 import {
   PrivateSettlementProvider,
   SettleInput,
   SettlementResult,
 } from './settlement.types';
-import { bytesToHex, hexToBytes, randomFrHex } from './pool/pool.bytes';
+import {
+  decideRecordNote,
+  type DepositTxOutcome,
+} from './pool/deposit-confirm';
+import {
+  bytesToHex,
+  hexBlobOrNull,
+  hexToBytes,
+  isNoteBlob,
+  randomFrHex,
+  strip0x,
+} from './pool/pool.bytes';
 import { PoolClient } from './pool/pool.client';
 import { assertUnshieldAmount } from './pool/pool.denoms';
 import { PoolProver, pubkeyToFrHex, spendSkBytes } from './pool/pool.prover';
@@ -58,6 +70,14 @@ export type ClientTransferOneProof = {
   out2_owner_pk?: string;
   out2_v?: string;
   payment_link_id?: string;
+};
+
+export type DepositFinalizeResult = {
+  status: DepositTxOutcome | 'leaf_not_visible';
+  tx_signature: string;
+  commitment: string;
+  amount: string;
+  leaf_index?: number;
 };
 
 class AsyncLock {
@@ -115,12 +135,34 @@ export class SolanaPoolSettlementProvider implements PrivateSettlementProvider {
     txSignature: string;
     viewPub: string | null;
     destination: string;
-  }): Promise<void> {
-    await this.lock.run(() => this.finalizeLocked(input));
+  }): Promise<DepositFinalizeResult> {
+    return this.lock.run(() => this.finalizeLocked(input));
+  }
+
+  async submitCustomerDeposit(input: {
+    paymentLinkId: string;
+    signedTransaction: string;
+    viewPub: string | null;
+    destination: string;
+  }): Promise<DepositFinalizeResult> {
+    return this.lock.run(async () => {
+      const txSignature = await this.client.sendRawSigned(input.signedTransaction);
+      await this.tree.attachPendingTx(input.paymentLinkId, txSignature);
+      return this.finalizeLocked({
+        paymentLinkId: input.paymentLinkId,
+        txSignature,
+        viewPub: input.viewPub,
+        destination: input.destination,
+      });
+    });
   }
 
   async broadcastSignedDeposit(rawBase64: string): Promise<string> {
     return this.client.sendSigned(rawBase64);
+  }
+
+  peekCustomerDeposit(paymentLinkId: string) {
+    return this.tree.peekPending(paymentLinkId);
   }
 
   async merkleLeaves(): Promise<string[]> {
@@ -133,7 +175,7 @@ export class SolanaPoolSettlementProvider implements PrivateSettlementProvider {
       commitment: row.commitment,
       leaf_index: row.leafIndex,
       value: row.value.toString(),
-      encrypted_blob: row.encryptedBlob,
+      encrypted_blob: hexBlobOrNull(row.encryptedBlob),
       payment_link_id: row.paymentLinkId,
     }));
   }
@@ -287,56 +329,118 @@ export class SolanaPoolSettlementProvider implements PrivateSettlementProvider {
     txSignature: string;
     viewPub: string | null;
     destination: string;
-  }): Promise<void> {
-    const pending = await this.tree.takePending(input.paymentLinkId);
+  }): Promise<DepositFinalizeResult> {
+    const pending = await this.tree.peekPending(input.paymentLinkId);
     if (!pending) {
       this.logger.warn(`no pending pool deposit for ${input.paymentLinkId}`);
-      return;
+      return {
+        status: 'expired',
+        tx_signature: input.txSignature,
+        commitment: '',
+        amount: '0',
+      };
     }
-    try {
-      await this.client.rpc().confirmTransaction(input.txSignature, 'confirmed');
-    } catch (error) {
-      this.logger.warn(
-        `could not confirm deposit ${input.txSignature}: ${String(error)}`,
-      );
+
+    if (!pending.txSignature) {
+      await this.tree.attachPendingTx(input.paymentLinkId, input.txSignature);
     }
+
+    const expired = pending.expiresAt.getTime() < Date.now() && !pending.txSignature;
+    const outcome = await this.client.signatureOutcome(input.txSignature, expired);
     const mint = this.client.mint().toBase58();
-    const tree = await this.client.fetchTree();
-    const leafIndex = await this.tree.append({
-      mint,
-      leaf: pending.commitment,
-      root: bytesToHex(tree.root),
-    });
-    let encryptedBlob: string | null = pending.encryptedBlob ?? null;
-    let nullifier: string | null = null;
-    if (pending.blindingK) {
-      encryptedBlob =
-        encryptedBlob ??
-        (await this.prover.encryptNote({
-          recipientView: input.viewPub ?? '',
-          ownerPk: pending.ownerPk,
-          k: pending.blindingK,
-          v: pending.amount,
-        }));
-      try {
-        nullifier = await this.prover.nullifier(this.spendSk(), pending.blindingK);
-      } catch {
-        nullifier = null;
-      }
+    const leaves = await this.tree.leaves(mint);
+    let leafIndex = this.tree.indexOfLeaf(leaves, pending.commitment);
+
+    if (outcome === 'confirmed' && leafIndex < 0) {
+      leafIndex = await this.tryCacheConfirmedLeaf(mint, pending.commitment);
     }
-    await this.tree.recordNote({
-      mint,
-      leafIndex,
+
+    const decision = decideRecordNote({ outcome, leafIndex });
+    if (!decision.record) {
+      if (decision.reason === 'failed' || decision.reason === 'expired') {
+        await this.tree.markPendingStatus(input.paymentLinkId, decision.reason);
+      }
+      this.logger.warn(
+        `deposit ${input.paymentLinkId} not recorded (${decision.reason}) sig=${input.txSignature}`,
+      );
+      return {
+        status: decision.reason,
+        tx_signature: input.txSignature,
+        commitment: pending.commitment,
+        amount: pending.amount.toString(),
+      };
+    }
+
+    const already = await this.tree.findOpenByCommitment(pending.commitment);
+    if (!already) {
+      let encryptedBlob: string | null = pending.encryptedBlob ?? null;
+      let nullifier: string | null = null;
+      if (pending.blindingK) {
+        encryptedBlob =
+          encryptedBlob ??
+          (await this.prover.encryptNote({
+            recipientView: input.viewPub ?? '',
+            ownerPk: pending.ownerPk,
+            k: pending.blindingK,
+            v: pending.amount,
+          }));
+        try {
+          nullifier = await this.prover.nullifier(
+            this.spendSk(),
+            pending.blindingK,
+          );
+        } catch {
+          nullifier = null;
+        }
+      }
+      await this.tree.recordNote({
+        mint,
+        leafIndex,
+        commitment: pending.commitment,
+        ownerPk: pending.ownerPk,
+        blindingK: pending.blindingK || '',
+        value: pending.amount,
+        encryptedBlob,
+        nullifier,
+        paymentLinkId: input.paymentLinkId.startsWith('dep_')
+          ? null
+          : input.paymentLinkId,
+      });
+    }
+
+    await this.tree.markPendingStatus(input.paymentLinkId, 'confirmed');
+    await this.tree.consumePending(input.paymentLinkId);
+    return {
+      status: 'confirmed',
+      tx_signature: input.txSignature,
       commitment: pending.commitment,
-      ownerPk: pending.ownerPk,
-      blindingK: pending.blindingK || '',
-      value: pending.amount,
-      encryptedBlob,
-      nullifier,
-      paymentLinkId: input.paymentLinkId.startsWith('dep_')
-        ? null
-        : input.paymentLinkId,
-    });
+      amount: pending.amount.toString(),
+      leaf_index: already?.leafIndex ?? leafIndex,
+    };
+  }
+
+  /** After the deposit tx is confirmed, cache the leaf only if the local tree is exactly one behind. */
+  private async tryCacheConfirmedLeaf(
+    mint: string,
+    commitment: string,
+  ): Promise<number> {
+    const local = await this.tree.leaves(mint);
+    const known = this.tree.indexOfLeaf(local, commitment);
+    if (known >= 0) return known;
+    try {
+      const onChain = await this.client.fetchTree();
+      const next = Number(onChain.nextIndex);
+      if (local.length === next - 1) {
+        return this.tree.append({
+          mint,
+          leaf: commitment,
+          root: bytesToHex(onChain.root),
+        });
+      }
+    } catch (error) {
+      this.logger.warn(`on-chain tree unavailable: ${String(error)}`);
+    }
+    return -1;
   }
 
   async unshieldInvoice(
@@ -754,6 +858,95 @@ export class SolanaPoolSettlementProvider implements PrivateSettlementProvider {
     );
   }
 
+  async disclose(viewSecret: string) {
+    const secret = viewSecret.trim();
+    if (!/^(0x)?[0-9a-fA-F]{64}$/.test(secret)) {
+      throw new InvalidRequestException(
+        'invalid_view_secret',
+        'Paste a 32-byte viewing key (64 hex characters).',
+        'view_secret',
+      );
+    }
+
+    const rows = await this.tree.listNotesForDisclose();
+    const opened: typeof rows = [];
+    for (const row of rows) {
+      if (!isNoteBlob(row.encryptedBlob)) continue;
+      const note = await this.prover.decryptNote(secret, row.encryptedBlob);
+      if (!note) continue;
+      opened.push(row);
+    }
+
+    const linkIds = [
+      ...new Set(
+        opened
+          .map((row) => row.paymentLinkId)
+          .filter((id): id is string => typeof id === 'string' && !id.startsWith('dep_')),
+      ),
+    ];
+    const [links, identities, indexedSigs] = await Promise.all([
+      this.tree.paymentLinksByPublicIds(linkIds),
+      this.tree.listIdentityHints(),
+      this.tree.signaturesForCommitments(opened.map((row) => row.commitment)),
+    ]);
+    const linkById = new Map(links.map((link) => [link.publicId, link]));
+    const handleByOwner = new Map<string, string>();
+    const handleByWallet = new Map<string, string>();
+    for (const row of identities) {
+      if (row.handle && row.ownerPk) {
+        handleByOwner.set(strip0x(row.ownerPk).toLowerCase(), row.handle);
+      }
+      if (row.handle && row.walletPubkey) {
+        handleByWallet.set(row.walletPubkey, row.handle);
+      }
+    }
+
+    const counts = new Map<string, number>();
+    const payments = opened.map((row) => {
+      const link = row.paymentLinkId
+        ? linkById.get(row.paymentLinkId)
+        : undefined;
+      const to =
+        link?.recipientHandle ??
+        handleByOwner.get(strip0x(row.ownerPk).toLowerCase()) ??
+        'Private recipient';
+      counts.set(to, (counts.get(to) ?? 0) + 1);
+      const payerHandle = link?.payerPubkey
+        ? handleByWallet.get(link.payerPubkey)
+        : undefined;
+      const from =
+        payerHandle ??
+        link?.clientName?.trim() ??
+        (link?.payerPubkey ? shortId(link.payerPubkey) : null) ??
+        (link ? 'Invoice payer' : 'Private sender');
+      const kind = link
+        ? 'invoice'
+        : row.paymentLinkId?.startsWith('dep_')
+          ? 'add_money'
+          : 'received';
+      return {
+        from,
+        to,
+        amount: row.value.toString(),
+        purpose:
+          link?.purpose?.trim() ||
+          (kind === 'add_money' ? 'Added to private balance' : 'Private payment'),
+        kind,
+        status: row.spent ? 'spent' : 'held',
+        at: row.createdAt.toISOString(),
+        leaf_index: row.leafIndex,
+        commitment: row.commitment,
+        tx_signature:
+          link?.txSignature ?? indexedSigs.get(row.commitment) ?? null,
+      };
+    });
+
+    const booksFor =
+      [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+    return { handle: booksFor, payments };
+  }
+
   private spendSk(): string {
     const fromEnv = loadConfig().pool.spendSk;
     if (fromEnv) return spendSkBytes(fromEnv);
@@ -773,6 +966,11 @@ export class SolanaPoolSettlementProvider implements PrivateSettlementProvider {
     this.ownerPkCache = await this.prover.ownerPk(this.spendSk());
     return this.ownerPkCache;
   }
+}
+
+function shortId(value: string): string {
+  if (value.length <= 12) return value;
+  return `${value.slice(0, 4)}…${value.slice(-4)}`;
 }
 
 function parsePubkey(value: string | null | undefined): PublicKey | null {

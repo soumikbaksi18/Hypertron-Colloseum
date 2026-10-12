@@ -1,0 +1,72 @@
+.deposit-disclosure {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid color-mix(in srgb, #c9a46a 45%, var(--line, #e2e8f0));
+  background: color-mix(in srgb, #c9a46a 8%, var(--panel-inset, #f8fafc));
+}
+
+.deposit-disclosure.is-blocked {
+  border-color: color-mix(in srgb, #e11d48 40%, var(--line, #e2e8f0));
+  background: color-mix(in srgb, #e11d48 7%, var(--panel-inset, #fff1f2));
+}
+
+.deposit-disclosure-kicker {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #a67c2d;
+}
+
+.deposit-disclosure.is-blocked .deposit-disclosure-kicker {
+  color: #be123c;
+}
+
+.deposit-disclosure-error {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #9f1239;
+}
+
+.deposit-disclosure dl {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.deposit-disclosure div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.deposit-disclosure dt {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-faint, #64748b);
+}
+
+.deposit-disclosure dd {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink, #0f172a);
+  overflow-wrap: anywhere;
+}
+
+.deposit-disclosure ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--ink-dim, #475569);
+  font-size: 0.85rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.deposit-disclosure-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--ink-faint, #64748b);
+}
