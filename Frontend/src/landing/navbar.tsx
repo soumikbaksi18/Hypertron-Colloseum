@@ -3,8 +3,8 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
-import { PhantomSignupDialog } from "../components/PhantomSignupDialog";
-import { clamp01, easeInOutCubic, subscribeScroll } from "./scroll-sync";
+import { BOOK_DEMO } from "./constants";
+import { clamp01, subscribeScroll } from "./scroll-sync";
 
 const links = [
   { href: "#product", label: "Product" },
@@ -17,7 +17,7 @@ const links = [
 
 function LogoMark() {
   return (
-    <span aria-hidden className="landing-nav-logo relative inline-flex size-7 shrink-0 items-center justify-center">
+    <span aria-hidden className="landing-nav-logo relative inline-flex size-5 shrink-0 items-center justify-center">
       <img
         src="/media/logo_white.png"
         alt=""
@@ -55,20 +55,12 @@ function applyTone(tone: "paper" | "void") {
 
 function syncNavTone() {
   const y = 40;
-  const pin = document.querySelector("[data-hero-pin]");
   const home = document.getElementById("home");
   const protocol = document.getElementById("protocol");
   const journey = document.querySelector(".landing-journey-span");
   const privacy = document.querySelector(".landing-privacy-span");
 
-  if (pin instanceof HTMLElement && home && covers(home, y)) {
-    const travel = Math.max(1, pin.offsetHeight - window.innerHeight);
-    if (travel > window.innerHeight * 0.5) {
-      const raw = clamp01(-pin.getBoundingClientRect().top / travel);
-      const shrink = easeInOutCubic(clamp01(raw / 0.46));
-      applyTone(shrink > 0.02 ? "paper" : "void");
-      return;
-    }
+  if (home && covers(home, y)) {
     applyTone("void");
     return;
   }
@@ -103,22 +95,22 @@ export function LandingNavbar() {
 
   return (
     <header className="landing-nav fixed inset-x-0 top-0 z-50">
-      <div className="mx-auto flex h-16 w-full items-center justify-between px-5 sm:px-10 lg:px-16">
+      <div className="mx-auto grid h-[4.5rem] w-full grid-cols-[1fr_auto] items-center px-5 sm:px-8 md:grid-cols-[1fr_auto_1fr] lg:px-12">
         <a
           href="#home"
-          className="landing-nav-ink inline-flex items-center gap-2.5 font-display text-[15px] font-medium tracking-[0.14em] uppercase"
+          className="landing-nav-ink inline-flex items-center gap-2.5 font-display text-[15px] font-medium tracking-[-0.02em]"
         >
           <LogoMark />
           Hypertron
         </a>
 
-        <nav className="hidden items-center gap-7 md:flex">
+        <nav className="hidden items-center gap-5 lg:gap-8 md:flex">
           {links.map((link) =>
             link.href.startsWith("/") ? (
               <Link
                 key={`${link.href}-${link.label}`}
                 to={link.href}
-                className="landing-nav-ink text-[11px] font-medium tracking-[0.18em] uppercase transition-opacity hover:opacity-60"
+                className="landing-nav-link"
               >
                 {link.label}
               </Link>
@@ -126,7 +118,7 @@ export function LandingNavbar() {
               <a
                 key={`${link.href}-${link.label}`}
                 href={link.href}
-                className="landing-nav-ink text-[11px] font-medium tracking-[0.18em] uppercase transition-opacity hover:opacity-60"
+                className="landing-nav-link"
               >
                 {link.label}
               </a>
@@ -134,12 +126,16 @@ export function LandingNavbar() {
           )}
         </nav>
 
-        <div className="landing-launch">
-          <PhantomSignupDialog triggerLabel="Launch app" />
-          <ArrowUpRight
-            aria-hidden
-            className="landing-launch-arrow pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2"
-          />
+        <div className="justify-self-end">
+          <a
+            href={BOOK_DEMO}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="landing-nav-cta"
+          >
+            Book a demo
+            <ArrowUpRight className="size-3.5" strokeWidth={1.75} />
+          </a>
         </div>
       </div>
     </header>

@@ -367,72 +367,60 @@
   overflow: hidden;
 }
 
-.landing-hero-frame {
-  background: #05070c;
+.landing-hero-title {
+  font-family: "Aeonik Pro", sans-serif;
 }
 
-.landing-hero-scene {
-  position: absolute;
-  inset: 0;
+.landing-hero-gradient {
+  background-image: linear-gradient(105deg, #e8f0ff 0%, #8eb6ff 46%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-.landing-hero-video,
-.landing-hero-video-fill {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-}
-
-.landing-hero-video-fill {
-  display: none;
+.landing-hero-scrim {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(5, 6, 12, 0.78) 0%,
+      rgba(5, 6, 12, 0.42) 26%,
+      rgba(5, 6, 12, 0.08) 46%,
+      transparent 62%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(5, 6, 12, 0.45) 0%,
+      transparent 14%,
+      transparent 84%,
+      rgba(5, 6, 12, 0.4) 100%
+    );
 }
 
 @media (max-width: 767px) {
-  .landing-hero-frame,
-  .landing-hero-scene {
-    background:
-      radial-gradient(ellipse 120% 70% at 50% 100%, #1d4e8c 0%, transparent 58%),
-      linear-gradient(180deg, #030712 0%, #071428 38%, #0c2c5c 68%, #163e78 100%);
-  }
-
-  .landing-hero-video-fill {
-    display: block;
-    object-position: 0% 80%;
-  }
-
-  .landing-hero-video {
-    inset: auto;
-    left: 0;
-    right: 0;
-    top: 60%;
-    z-index: 1;
-    width: 100%;
-    height: min(66vh, 36rem);
-    transform: translateY(-50%);
-    object-fit: cover;
-    object-position: 74% 46%;
-    -webkit-mask-image: linear-gradient(
-      to bottom,
-      transparent 0%,
-      #000 14%,
-      #000 88%,
-      transparent 100%
-    );
-    mask-image: linear-gradient(
-      to bottom,
-      transparent 0%,
-      #000 14%,
-      #000 88%,
-      transparent 100%
+  .landing-hero-scrim {
+    background: linear-gradient(
+      180deg,
+      rgba(5, 6, 12, 0.82) 0%,
+      rgba(5, 6, 12, 0.62) 26%,
+      rgba(5, 6, 12, 0.28) 52%,
+      rgba(5, 6, 12, 0.72) 100%
     );
   }
 }
 
-.landing-hero-title {
-  font-family: "Aeonik Pro", sans-serif;
+.landing-live-dot {
+  box-shadow: 0 0 8px rgba(62, 224, 138, 0.95);
+  animation: landing-live-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes landing-live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 
@@ -442,52 +430,6 @@
     radial-gradient(circle at 78% 28%, rgba(59, 130, 246, 0.5) 1px, transparent 1.2px),
     linear-gradient(105deg, transparent 12%, rgba(255, 255, 255, 0.5) 49%, transparent 54%);
   background-size: 18px 18px, 22px 22px, 100% 100%;
-}
-
-.landing-hero-mask {
-  background: linear-gradient(
-    180deg,
-    #02050c 0%,
-    #08132a 18%,
-    #102340 30%,
-    #21406e 44%,
-    #3e639b 57%,
-    #6c8dc0 69%,
-    #9db6da 79%,
-    #c6d6ec 87%,
-    #e6edf8 94%,
-    #ffffff 100%
-  );
-}
-
-.landing-hero-veil {
-  background:
-    linear-gradient(
-      90deg,
-      rgba(5, 7, 12, 0.78) 0%,
-      rgba(5, 7, 12, 0.38) 42%,
-      rgba(5, 7, 12, 0.12) 70%,
-      rgba(5, 7, 12, 0.28) 100%
-    ),
-    linear-gradient(
-      180deg,
-      rgba(5, 7, 12, 0.42) 0%,
-      transparent 28%,
-      rgba(5, 7, 12, 0.55) 100%
-    );
-}
-
-@media (max-width: 767px) {
-  .landing-hero-veil {
-    background: linear-gradient(
-      180deg,
-      rgba(5, 7, 12, 0.62) 0%,
-      rgba(5, 7, 12, 0.28) 26%,
-      rgba(5, 7, 12, 0.06) 48%,
-      rgba(5, 7, 12, 0.22) 72%,
-      rgba(5, 7, 12, 0.7) 100%
-    );
-  }
 }
 
 .landing-nav {
@@ -518,32 +460,37 @@ html[data-landing="paper"] .landing-nav-logo-light {
   opacity: 0;
 }
 
-.landing-launch {
-  position: relative;
+.landing-nav-link {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.011em;
+  opacity: 0.78;
+  transition: opacity 0.2s ease;
 }
 
-.landing-launch a,
-.landing-launch button {
+.landing-nav-link:hover {
+  opacity: 1;
+}
+
+.landing-nav-cta {
   display: inline-flex;
   align-items: center;
-  height: 2.5rem;
-  padding-inline: 1.15rem 1.85rem;
-  border-radius: 0;
-  background: #ffffff;
-  color: #05070c;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  gap: 0.3rem;
+  height: 2.25rem;
+  padding: 0 0.95rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
 }
 
-.landing-launch a:hover,
-.landing-launch button:hover {
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.landing-launch-arrow {
-  color: #05070c;
+.landing-nav-cta:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 html[data-landing="paper"] .landing-nav {
@@ -566,19 +513,12 @@ html[data-landing="paper"] .landing-nav::before {
   -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
 }
 
-html[data-landing="paper"] .landing-launch a,
-html[data-landing="paper"] .landing-launch button {
-  background: #0b1220;
-  color: #ffffff;
+html[data-landing="paper"] .landing-nav-cta {
+  border-color: rgba(11, 18, 32, 0.28);
 }
 
-html[data-landing="paper"] .landing-launch a:hover,
-html[data-landing="paper"] .landing-launch button:hover {
-  background: #000000;
-}
-
-html[data-landing="paper"] .landing-launch-arrow {
-  color: #ffffff;
+html[data-landing="paper"] .landing-nav-cta:hover {
+  background: rgba(11, 18, 32, 0.05);
 }
 
 /* ─── Ecosystem diagram ─── */
@@ -914,7 +854,7 @@ html[data-landing="paper"] .landing-launch-arrow {
     animation: none;
   }
 
-  .landing-hero-frame {
-    transform: none !important;
+  .landing-live-dot {
+    animation: none;
   }
 }

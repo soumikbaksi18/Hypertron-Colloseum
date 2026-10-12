@@ -9,6 +9,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { loadConfig } from '../../../common/config/configuration';
 import { hexToBytes, hexToFixed } from './pool.bytes';
 import { MERKLE_DEPTH, PROOF_LEN } from './pool.constants';
+import {
+  commitmentFromNote,
+  generateViewingKey,
+  nullifierFromSpend,
+  ownerPkFromSpendSk,
+} from './poseidon-fr';
 
 const execFileAsync = promisify(execFile);
 
@@ -97,26 +103,15 @@ export class PoolProver {
   }
 
   async ownerPk(spendSk: string): Promise<string> {
-    const { stdout } = await this.run(['owner-pk', '--spend-sk', spendSk]);
-    return stdout.trim();
+    return ownerPkFromSpendSk(spendSk);
   }
 
   async nullifier(spendSk: string, k: string): Promise<string> {
-    const { stdout } = await this.run(['nullifier', '--spend-sk', spendSk, '--k', k]);
-    return stdout.trim();
+    return nullifierFromSpend(spendSk, k);
   }
 
   async commitment(ownerPk: string, k: string, v: bigint): Promise<string> {
-    const { stdout } = await this.run([
-      'commitment',
-      '--owner-pk',
-      ownerPk,
-      '--k',
-      k,
-      '--v',
-      v.toString(),
-    ]);
-    return stdout.trim();
+    return commitmentFromNote(ownerPk, k, v);
   }
 
   async encryptNote(input: {
@@ -252,23 +247,7 @@ export class PoolProver {
   }
 
   async keygenViewing(): Promise<{ viewSecret: string; viewPub: string }> {
-    const { stdout } = await this.run(['keygen']);
-    const secret =
-      stdout
-        .split('\n')
-        .find((line) => line.startsWith('view_secret'))
-        ?.replace(/^view_secret\s+/, '')
-        .trim() ?? '';
-    const viewPub =
-      stdout
-        .split('\n')
-        .find((line) => line.startsWith('view_pub'))
-        ?.replace(/^view_pub\s+/, '')
-        .trim() ?? '';
-    if (!secret || !viewPub) {
-      throw new Error('keygen did not return a viewing keypair');
-    }
-    return { viewSecret: secret, viewPub };
+    return generateViewingKey();
   }
 
   async decryptNote(

@@ -19,7 +19,7 @@ export function LandingPage() {
     const root = document.documentElement;
     const previousTitle = document.title;
     const previousSize = root.style.fontSize;
-    document.title = 'Hypertron: Privacy infrastructure for payments';
+    document.title = 'Hypertron — Private payments, built for business.';
     root.style.fontSize = '16px';
 
     return () => {

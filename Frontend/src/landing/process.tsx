@@ -1,11 +1,9 @@
 import { JOURNEY } from "./constants";
-import { JourneyBg } from "./journey-bg";
 import { ScrollFade } from "./reveal";
 
 export function LandingProcess() {
   return (
     <section id="protocol" className="landing-journey relative">
-      <JourneyBg />
       <div className="relative z-10 mx-auto w-full px-5 pt-8 pb-32 sm:px-10 sm:pt-10 sm:pb-40 lg:px-16">
         <ScrollFade>
           <div className="max-w-2xl pb-20">
