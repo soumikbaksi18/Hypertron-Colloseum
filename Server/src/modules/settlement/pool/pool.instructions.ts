@@ -32,6 +32,7 @@ export function depositIx(args: {
   amount: bigint;
   commitment: Buffer;
   proof: Buffer;
+  encryptedBlob?: Buffer;
 }): TransactionInstruction {
   if (args.commitment.length !== 32) {
     throw new Error('deposit commitment must be 32 bytes');
@@ -45,6 +46,7 @@ export function depositIx(args: {
     encodeU64Le(args.amount),
     args.commitment,
     args.proof,
+    encodeVecU8(args.encryptedBlob ?? Buffer.alloc(0)),
   ]);
 
   return new TransactionInstruction({
@@ -164,6 +166,28 @@ export function registerVkIx(args: {
   });
 }
 
+export function setTransferVkIx(args: {
+  programId: PublicKey;
+  admin: PublicKey;
+  mint: PublicKey;
+  transferVk: PublicKey;
+  transferVkId: number;
+}): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: args.programId,
+    data: Buffer.concat([IX.setTransferVk, encodeU32Le(args.transferVkId)]),
+    keys: [
+      { pubkey: args.admin, isSigner: true, isWritable: false },
+      {
+        pubkey: poolPda(args.programId, args.mint),
+        isSigner: false,
+        isWritable: true,
+      },
+      { pubkey: args.transferVk, isSigner: false, isWritable: false },
+    ],
+  });
+}
+
 export function initializeIx(args: {
   programId: PublicKey;
   admin: PublicKey;
@@ -271,6 +295,49 @@ export function transferIx(args: {
       },
       {
         pubkey: nullifierPda(args.programId, args.nullifier2),
+        isSigner: false,
+        isWritable: true,
+      },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+  });
+}
+
+export function transferOneIx(args: {
+  programId: PublicKey;
+  feePayer: PublicKey;
+  pool: PublicKey;
+  merkle: PublicKey;
+  transferOneVk: PublicKey;
+  root: Buffer;
+  nullifier: Buffer;
+  outCm1: Buffer;
+  outCm2: Buffer;
+  proof: Buffer;
+  note1: Buffer;
+  note2: Buffer;
+}): TransactionInstruction {
+  const data = Buffer.concat([
+    IX.transferOne,
+    args.root,
+    args.nullifier,
+    args.outCm1,
+    args.outCm2,
+    args.proof,
+    encodeVecU8(args.note1),
+    encodeVecU8(args.note2),
+  ]);
+
+  return new TransactionInstruction({
+    programId: args.programId,
+    data,
+    keys: [
+      { pubkey: args.feePayer, isSigner: true, isWritable: true },
+      { pubkey: args.pool, isSigner: false, isWritable: true },
+      { pubkey: args.merkle, isSigner: false, isWritable: true },
+      { pubkey: args.transferOneVk, isSigner: false, isWritable: false },
+      {
+        pubkey: nullifierPda(args.programId, args.nullifier),
         isSigner: false,
         isWritable: true,
       },

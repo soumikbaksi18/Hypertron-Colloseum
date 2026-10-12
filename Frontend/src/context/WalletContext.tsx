@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 
+import { ensureShieldKeys } from '../lib/ensure-keys';
 import { ApiError } from '../lib/http';
 import {
   PHANTOM_INSTALL_URL,
@@ -37,7 +38,12 @@ export function WalletSessionProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     try {
       const next = await sessionApi.me();
-      setSession(next);
+      try {
+        const ensured = await ensureShieldKeys(next);
+        setSession(ensured.session);
+      } catch {
+        setSession(next);
+      }
       setError(null);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -70,8 +76,14 @@ export function WalletSessionProvider({ children }: { children: ReactNode }) {
     try {
       const result = await runPhantomSignInFlow(onStatus);
       if (result.ok) {
-        setSession(result.session);
-        return result;
+        try {
+          const ensured = await ensureShieldKeys(result.session);
+          setSession(ensured.session);
+          return { ok: true as const, session: ensured.session };
+        } catch {
+          setSession(result.session);
+          return result;
+        }
       }
       setError(result.error);
       if (result.needsInstall) {

@@ -1,12 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { ApiError } from '../../lib/http';
-import {
-  paymentLinksApi,
-  type PaymentLink,
-} from '../../lib/payment-links';
+import { payUrl, paymentLinksApi, type PaymentLink } from '../../lib/payment-links';
 import { ExplorerTxLink } from '../../components/ExplorerTxLink';
 import { useWalletSession } from '../../context/WalletContext';
+import { money } from '../../lib/format';
 
 export function CollectPaymentsPage() {
   const { session } = useWalletSession();
@@ -14,12 +12,16 @@ export function CollectPaymentsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [amount, setAmount] = useState('120');
+  const [amount, setAmount] = useState('1');
   const [purpose, setPurpose] = useState('Invoice');
   const [clientName, setClientName] = useState('');
-  const [withdrawId, setWithdrawId] = useState<string | null>(null);
-  const [withdrawTo, setWithdrawTo] = useState('');
-  const [withdrawing, setWithdrawing] = useState(false);
+  const buckets = links[0]?.amount_buckets ?? [
+    '100000',
+    '500000',
+    '1000000',
+    '5000000',
+    '10000000',
+  ];
 
   async function refresh() {
     const next = await paymentLinksApi.list();
@@ -49,7 +51,7 @@ export function CollectPaymentsPage() {
         client_name: clientName.trim() || undefined,
       });
       setLinks((current) => [created, ...current]);
-      await navigator.clipboard.writeText(created.url).catch(() => undefined);
+      await navigator.clipboard.writeText(payUrl(created.id, created.url)).catch(() => undefined);
       setCopied(created.id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not create this invoice.');
@@ -58,46 +60,16 @@ export function CollectPaymentsPage() {
     }
   }
 
-  function startWithdraw(link: PaymentLink) {
-    setError(null);
-    setWithdrawId(link.id);
-    setWithdrawTo(
-      session?.payout_address ||
-        session?.wallet_address ||
-        link.destination_address,
-    );
-  }
-
-  async function submitWithdraw(link: PaymentLink) {
-    const destination = withdrawTo.trim();
-    if (!destination) {
-      setError('Enter a Solana address to withdraw to.');
-      return;
-    }
-    setWithdrawing(true);
-    setError(null);
-    try {
-      const next = await paymentLinksApi.withdraw(link.id, { destination });
-      setLinks((current) =>
-        current.map((row) => (row.id === next.id ? next : row)),
-      );
-      setWithdrawId(null);
-    } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : 'Could not withdraw this invoice.',
-      );
-    } finally {
-      setWithdrawing(false);
-    }
-  }
+  if (!session) return null;
 
   return (
     <div className="app-page">
       <header className="app-page-header">
-        <h1>Payments</h1>
+        <h1>Invoices</h1>
         <p>
-          Create an invoice and send the link. Paid invoices stay in the
-          shielded pool until you withdraw to any address.
+          Request payment to your Hypertron ID ({session.handle ?? '…'}). The
+          payer sends from their private balance — no Phantom address on the
+          invoice.
         </p>
       </header>
 
@@ -122,6 +94,22 @@ export function CollectPaymentsPage() {
                 inputMode="decimal"
               />
             </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+              {buckets.map((minor) => {
+                const dollars = (Number(minor) / 1_000_000).toString();
+                return (
+                  <button
+                    key={minor}
+                    type="button"
+                    className="landing-cta-secondary"
+                    style={{ height: '1.9rem', fontSize: '0.85rem' }}
+                    onClick={() => setAmount(dollars)}
+                  >
+                    {dollars}
+                  </button>
+                );
+              })}
+            </div>
             <label className="gate-field">
               <span className="eyebrow">Purpose</span>
               <input
@@ -141,14 +129,14 @@ export function CollectPaymentsPage() {
               />
             </label>
             <button className="gate-submit" disabled={busy} type="submit">
-              {busy ? 'Creating…' : 'Create payment link'}
+              {busy ? 'Creating…' : 'Create invoice'}
             </button>
           </div>
         </form>
 
         <div className="panel">
           <div className="panel-head">
-            <p className="eyebrow">Links</p>
+            <p className="eyebrow">Incoming</p>
           </div>
           <div className="panel-body" style={{ padding: 0 }}>
             {links.length === 0 ? (
@@ -168,82 +156,42 @@ export function CollectPaymentsPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
                       <strong>{link.purpose ?? 'Invoice'}</strong>
                       <span className="mono" style={{ fontSize: '1rem' }}>
-                        {(Number(link.amount) / 1_000_000).toFixed(2)} {link.currency}
+                        {money(link.amount, link.currency)}
                       </span>
                     </div>
                     <p style={{ margin: '0.25rem 0 0', fontSize: '1rem', color: 'var(--ink-faint)' }}>
                       {link.client_name ?? 'No customer'} · {link.status}
-                      {link.in_pool ? ' · in pool' : ''}
-                      {link.payout_tx_signature ? ' · withdrawn' : ''}
+                      {link.in_pool ? ' · note received' : ''}
+                      {link.recipient_handle ? ` · ${link.recipient_handle}` : ''}
                     </p>
-                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.55rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                      <a href={link.url} target="_blank" rel="noreferrer" className="landing-cta-secondary" style={{ height: '2rem', fontSize: '0.95rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.55rem', flexWrap: 'wrap' }}>
+                      <a
+                        href={payUrl(link.id, link.url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="landing-cta-secondary"
+                        style={{ height: '2rem', fontSize: '0.95rem' }}
+                      >
                         Open
                       </a>
                       {link.status === 'paid' && (link.tx_signature || link.payment_tx_hash) && (
                         <ExplorerTxLink
                           signature={link.tx_signature ?? link.payment_tx_hash}
+                          cluster={link.cluster}
                         />
-                      )}
-                      {link.payout_tx_signature && (
-                        <ExplorerTxLink signature={link.payout_tx_signature} />
-                      )}
-                      {link.in_pool && (
-                        <button
-                          type="button"
-                          className="landing-cta-secondary"
-                          style={{ height: '2rem', fontSize: '0.95rem' }}
-                          onClick={() => startWithdraw(link)}
-                        >
-                          Withdraw
-                        </button>
                       )}
                       <button
                         type="button"
                         className="landing-cta-secondary"
                         style={{ height: '2rem', fontSize: '0.95rem' }}
                         onClick={() => {
-                          void navigator.clipboard.writeText(link.url);
+                          void navigator.clipboard.writeText(payUrl(link.id, link.url));
                           setCopied(link.id);
                         }}
                       >
                         {copied === link.id ? 'Copied' : 'Copy link'}
                       </button>
                     </div>
-                    {withdrawId === link.id && (
-                      <div style={{ display: 'grid', gap: '0.45rem', marginTop: '0.7rem' }}>
-                        <label className="gate-field">
-                          <span className="eyebrow">Withdraw to</span>
-                          <input
-                            className="gate-input mono"
-                            value={withdrawTo}
-                            onChange={(event) => setWithdrawTo(event.target.value)}
-                            spellCheck={false}
-                            placeholder="Solana address"
-                          />
-                        </label>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button
-                            type="button"
-                            className="gate-submit"
-                            style={{ height: '2.2rem' }}
-                            disabled={withdrawing}
-                            onClick={() => void submitWithdraw(link)}
-                          >
-                            {withdrawing ? 'Withdrawing…' : 'Confirm withdraw'}
-                          </button>
-                          <button
-                            type="button"
-                            className="landing-cta-secondary"
-                            style={{ height: '2.2rem' }}
-                            disabled={withdrawing}
-                            onClick={() => setWithdrawId(null)}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </li>
                 ))}
               </ul>

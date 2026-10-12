@@ -23,7 +23,8 @@ pub use commitment::DEPTH;
 pub use compliance::{InitializeCompliance, SetListing};
 pub use error::PoolError;
 pub use transfer::{
-    Deposit, Initialize, PoolTransfer, RegisterMerchantTreasury, Withdraw,
+    Deposit, Initialize, PoolTransfer, RegisterMerchantTreasury, SetTransferVk, TransferOne,
+    Withdraw,
 };
 pub use verifier::{RegisterVk, MAX_IC};
 
@@ -33,7 +34,8 @@ pub(crate) use compliance::{
 };
 pub(crate) use transfer::{
     __client_accounts_deposit, __client_accounts_initialize, __client_accounts_pool_transfer,
-    __client_accounts_register_merchant_treasury, __client_accounts_withdraw,
+    __client_accounts_register_merchant_treasury, __client_accounts_set_transfer_vk,
+    __client_accounts_transfer_one, __client_accounts_withdraw,
 };
 pub(crate) use verifier::__client_accounts_register_vk;
 
@@ -59,6 +61,10 @@ pub mod hypertron_pool {
         transfer_vk_id: u32,
     ) -> Result<()> {
         transfer::initialize(ctx, deposit_vk_id, unshield_vk_id, transfer_vk_id)
+    }
+
+    pub fn set_transfer_vk(ctx: Context<SetTransferVk>, transfer_vk_id: u32) -> Result<()> {
+        transfer::set_transfer_vk(ctx, transfer_vk_id)
     }
 
     pub fn register_vk(
@@ -95,8 +101,9 @@ pub mod hypertron_pool {
         amount: u64,
         commitment: [u8; 32],
         proof: [u8; PROOF_LEN],
+        encrypted_blob: Vec<u8>,
     ) -> Result<()> {
-        transfer::deposit(ctx, amount, commitment, proof)
+        transfer::deposit(ctx, amount, commitment, proof, encrypted_blob)
     }
 
     pub fn transfer(
@@ -121,6 +128,21 @@ pub mod hypertron_pool {
             note_1,
             note_2,
         )
+    }
+
+    /// 1-in / 2-out private transfer (spend one note, pay + change).
+    /// Verifies against the registered transfer-one VK (id 5), not PoolState.transfer_vk.
+    pub fn transfer_one(
+        ctx: Context<TransferOne>,
+        root: [u8; 32],
+        nullifier: [u8; 32],
+        out_cm1: [u8; 32],
+        out_cm2: [u8; 32],
+        proof: [u8; PROOF_LEN],
+        note_1: Vec<u8>,
+        note_2: Vec<u8>,
+    ) -> Result<()> {
+        transfer::transfer_one(ctx, root, nullifier, out_cm1, out_cm2, proof, note_1, note_2)
     }
 
     pub fn withdraw(

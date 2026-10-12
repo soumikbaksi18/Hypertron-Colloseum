@@ -23,12 +23,19 @@ import { loadConfig } from '../../../common/config/configuration';
 import { decodeMerkleTree, decodePoolState } from './pool.accounts';
 import type { DecodedMerkleTree, DecodedPoolState } from './pool.accounts';
 import { hexToFixed } from './pool.bytes';
-import { POOL_PROGRAM_ID } from './pool.constants';
+import {
+  classifySignatureStatus,
+  type DepositTxOutcome,
+} from './deposit-confirm';
+import { POOL_PROGRAM_ID, VK_ID } from './pool.constants';
 import {
   depositIx,
   initializeIx,
   parseVkJson,
   registerVkIx,
+  setTransferVkIx,
+  transferIx,
+  transferOneIx,
   withdrawIx,
 } from './pool.instructions';
 import { merklePda, poolPda, vaultAuthorityPda, vkPda } from './pool.pdas';
@@ -96,6 +103,7 @@ export class PoolClient {
     amount: bigint;
     commitmentHex: string;
     proof: Buffer;
+    encryptedBlob?: Buffer;
   }): Promise<{ ix: TransactionInstruction; pool: DecodedPoolState }> {
     const pool = await this.fetchPool();
     const mint = this.mint();
@@ -121,6 +129,7 @@ export class PoolClient {
         amount: input.amount,
         commitment: hexToFixed(input.commitmentHex, 32),
         proof: input.proof,
+        encryptedBlob: input.encryptedBlob,
       }),
     };
   }
@@ -202,6 +211,7 @@ export class PoolClient {
     amount: bigint;
     commitmentHex: string;
     proof: Buffer;
+    encryptedBlob?: Buffer;
   }): Promise<string> {
     const { ix } = await this.buildDepositIx(input);
     const tx = new Transaction();
@@ -219,6 +229,7 @@ export class PoolClient {
     amount: bigint;
     commitmentHex: string;
     proof: Buffer;
+    encryptedBlob?: Buffer;
   }): Promise<string> {
     const relayer = this.relayerKeypair();
     const { ix } = await this.buildDepositIx({
@@ -253,6 +264,7 @@ export class PoolClient {
       mint,
       pool.tokenProgram,
     );
+    this.assertRelayerFeePayer(relayer.publicKey);
     const ix = withdrawIx({
       programId,
       feePayer: relayer.publicKey,
@@ -272,6 +284,66 @@ export class PoolClient {
       proof: input.proof,
     });
     return this.send([createAta, ix], [relayer]);
+  }
+
+  async sendRelayerTransfer(input: {
+    rootHex: string;
+    nullifier1Hex: string;
+    nullifier2Hex: string;
+    outCm1Hex: string;
+    outCm2Hex: string;
+    proof: Buffer;
+    note1: Buffer;
+    note2: Buffer;
+  }): Promise<string> {
+    const pool = await this.fetchPool();
+    const relayer = this.relayerKeypair();
+    this.assertRelayerFeePayer(relayer.publicKey);
+    const ix = transferIx({
+      programId: this.programId(),
+      feePayer: relayer.publicKey,
+      pool: this.poolAddress(),
+      merkle: this.merkleAddress(),
+      transferVk: pool.transferVk,
+      root: hexToFixed(input.rootHex, 32),
+      nullifier1: hexToFixed(input.nullifier1Hex, 32),
+      nullifier2: hexToFixed(input.nullifier2Hex, 32),
+      outCm1: hexToFixed(input.outCm1Hex, 32),
+      outCm2: hexToFixed(input.outCm2Hex, 32),
+      proof: input.proof,
+      note1: input.note1,
+      note2: input.note2,
+    });
+    return this.send([ix], [relayer]);
+  }
+
+  async sendRelayerTransferOne(input: {
+    rootHex: string;
+    nullifierHex: string;
+    outCm1Hex: string;
+    outCm2Hex: string;
+    proof: Buffer;
+    note1: Buffer;
+    note2: Buffer;
+  }): Promise<string> {
+    const pool = await this.fetchPool();
+    const relayer = this.relayerKeypair();
+    this.assertRelayerFeePayer(relayer.publicKey);
+    const ix = transferOneIx({
+      programId: this.programId(),
+      feePayer: relayer.publicKey,
+      pool: this.poolAddress(),
+      merkle: this.merkleAddress(),
+      transferOneVk: vkPda(this.programId(), pool.admin, VK_ID.transferOne),
+      root: hexToFixed(input.rootHex, 32),
+      nullifier: hexToFixed(input.nullifierHex, 32),
+      outCm1: hexToFixed(input.outCm1Hex, 32),
+      outCm2: hexToFixed(input.outCm2Hex, 32),
+      proof: input.proof,
+      note1: input.note1,
+      note2: input.note2,
+    });
+    return this.send([ix], [relayer]);
   }
 
   async registerVkFromFile(vkPath: string, vkId: number): Promise<string> {
@@ -295,8 +367,22 @@ export class PoolClient {
       this.logger.log(`vk ${vkId} already registered at ${pda.toBase58()}`);
       return pda.toBase58();
     }
-    await this.send([ix], [admin]);
+    await this.send([ix], [admin], { computeBudget: false });
     return pda.toBase58();
+  }
+
+  async setTransferVk(vkId: number): Promise<string> {
+    const admin = this.relayerKeypair();
+    const programId = this.programId();
+    const transferVk = vkPda(programId, admin.publicKey, vkId);
+    const ix = setTransferVkIx({
+      programId,
+      admin: admin.publicKey,
+      mint: this.mint(),
+      transferVk,
+      transferVkId: vkId,
+    });
+    return this.send([ix], [admin]);
   }
 
   async initializePool(vkIds: {
@@ -334,11 +420,15 @@ export class PoolClient {
   private async send(
     ixs: TransactionInstruction[],
     signers: Keypair[],
+    opts?: { computeBudget?: boolean },
   ): Promise<string> {
     const tx = new Transaction();
-    tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }));
+    if (opts?.computeBudget !== false) {
+      tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }));
+    }
     for (const ix of ixs) tx.add(ix);
     tx.feePayer = signers[0].publicKey;
+    this.assertRelayerFeePayer(tx.feePayer);
     const latest = await this.rpc().getLatestBlockhash();
     tx.recentBlockhash = latest.blockhash;
     const sig = await this.rpc().sendTransaction(tx, signers, {
@@ -352,7 +442,16 @@ export class PoolClient {
     return sig;
   }
 
-  async sendSigned(rawBase64: string): Promise<string> {
+  assertRelayerFeePayer(feePayer: PublicKey): void {
+    const relayer = this.relayerKeypair().publicKey;
+    if (!feePayer.equals(relayer)) {
+      throw new Error(
+        `relayer-only exits: fee payer ${feePayer.toBase58()} is not ${relayer.toBase58()}`,
+      );
+    }
+  }
+
+  async sendRawSigned(rawBase64: string): Promise<string> {
     const raw = Buffer.from(rawBase64, 'base64');
     if (raw.length < 64 || raw.length > 4096) {
       throw new Error('signed deposit transaction is the wrong size');
@@ -361,34 +460,73 @@ export class PoolClient {
       skipPreflight: false,
       preflightCommitment: 'confirmed',
     });
+    this.logger.log(`broadcast ${sig}`);
+    return sig;
+  }
+
+  async signatureOutcome(
+    signature: string,
+    expired = false,
+  ): Promise<DepositTxOutcome> {
+    const { value } = await this.rpc().getSignatureStatuses([signature], {
+      searchTransactionHistory: true,
+    });
+    const row = value[0];
+    return classifySignatureStatus({
+      found: Boolean(row),
+      confirmationStatus: row?.confirmationStatus ?? null,
+      err: row?.err ?? null,
+      expired,
+    });
+  }
+
+  async sendSigned(rawBase64: string): Promise<string> {
+    const sig = await this.sendRawSigned(rawBase64);
     const latest = await this.rpc().getLatestBlockhash();
     await this.rpc().confirmTransaction(
       { signature: sig, ...latest },
       'confirmed',
     );
-    this.logger.log(`broadcast ${sig}`);
     return sig;
   }
 }
 
 export function loadKeypair(spec: string): Keypair {
-  const trimmed = spec.trim();
-  if (trimmed.startsWith('[')) {
-    return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(trimmed) as number[]));
+  let trimmed = spec.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    trimmed = trimmed.slice(1, -1);
+  }
+  const fromJson = (raw: string): Keypair | null => {
+    const body = raw.trim();
+    if (!body.startsWith('[')) return null;
+    return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(body) as number[]));
+  };
+  const asJson = fromJson(trimmed);
+  if (asJson) return asJson;
+  try {
+    const decoded = Buffer.from(trimmed, 'base64').toString('utf8');
+    const fromB64 = fromJson(decoded);
+    if (fromB64) return fromB64;
+  } catch {
+    // not base64 JSON
   }
   const file = trimmed.startsWith('~')
     ? path.join(os.homedir(), trimmed.slice(1))
     : trimmed;
-  if (fs.existsSync(file)) {
+  if (fs.existsSync(file) && fs.statSync(file).isFile()) {
     const raw = fs.readFileSync(file, 'utf8').trim();
-    if (raw.startsWith('[')) {
-      return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(raw) as number[]));
-    }
+    const fromFile = fromJson(raw);
+    if (fromFile) return fromFile;
     return Keypair.fromSecretKey(bs58.decode(raw));
   }
   try {
     return Keypair.fromSecretKey(bs58.decode(trimmed));
   } catch {
-    throw new Error(`Cannot load relayer keypair from ${spec}`);
+    throw new Error(
+      'Cannot load relayer keypair. Set SOLANA_RELAYER_KEYPAIR to a JSON secret array, base58, or a keypair file path.',
+    );
   }
 }

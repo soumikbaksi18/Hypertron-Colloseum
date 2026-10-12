@@ -3,6 +3,8 @@ import { PaymentLink, PaymentLinkStatus } from '@prisma/client';
 import { PublicKey } from '@solana/web3.js';
 
 import { loadConfig, poolSettlementEnabled } from '../../common/config/configuration';
+import { snapAmountUp } from '../settlement/pool/pool.denoms';
+import type { ClientWithdrawProof } from '../settlement/solana-pool.provider';
 import {
   HypertronException,
   InvalidRequestException,
@@ -38,6 +40,12 @@ export class PaymentLinksService {
         'Set a payout address in Settings before creating an invoice.',
       );
     }
+    if (!business.handle || !business.ownerPk) {
+      throw new InvalidRequestException(
+        'missing_hypertron_id',
+        'Publish a Hypertron ID (sign in and generate shield keys) before creating an invoice.',
+      );
+    }
 
     const expiresAt = input.expires_at ? new Date(input.expires_at) : null;
     if (expiresAt && Number.isNaN(expiresAt.getTime())) {
@@ -48,12 +56,13 @@ export class PaymentLinksService {
       data: {
         publicId: publicId('pl'),
         businessId: business.businessId,
-        amountMinor: BigInt(input.amount_minor),
+        amountMinor: snapAmountUp(BigInt(input.amount_minor)),
         currency: (input.currency ?? 'USDC').toUpperCase(),
         purpose: input.purpose?.trim() || null,
         clientName: input.client_name?.trim() || null,
         memo: input.memo?.trim() || null,
         destinationAddress: destination,
+        recipientHandle: business.handle,
         expiresAt,
       },
     });
@@ -73,29 +82,47 @@ export class PaymentLinksService {
         : await this.prisma.poolNote.findMany({
             where: { paymentLinkId: { in: rows.map((row) => row.publicId) } },
           });
-    const open = new Set(
-      notes.filter((note) => !note.spent).map((note) => note.paymentLinkId),
+    const open = new Map(
+      notes
+        .filter((note) => !note.spent)
+        .map((note) => [note.paymentLinkId, note] as const),
     );
     return rows.map((row) =>
-      this.toMerchant(row, businessName, open.has(row.publicId)),
+      this.toMerchant(row, businessName, open.get(row.publicId)),
     );
   }
 
   async getPublic(publicIdValue: string) {
     const row = await this.prisma.paymentLink.findUnique({
       where: { publicId: publicIdValue },
-      include: { business: { select: { name: true } } },
+      include: {
+        business: {
+          select: { name: true, viewPub: true, ownerPk: true, handle: true },
+        },
+      },
     });
     if (!row) {
       throw new ResourceNotFoundException('Payment link not found.');
     }
-    return this.toPublic(row, row.business.name);
+    return this.toPublic(row, row.business.name, row.business);
   }
 
   async prepareShield(
     publicIdValue: string,
-    payerPubkey: string,
-  ): Promise<{ transaction: string; commitment: string; rail: 'pool' }> {
+    input: {
+      payer_pubkey: string;
+      commitment?: string;
+      proof?: string;
+      blob?: string;
+    },
+  ): Promise<{
+    transaction: string;
+    commitment: string;
+    owner_pk: string;
+    view_pub: string | null;
+    amount: string;
+    rail: 'pool';
+  }> {
     if (!poolSettlementEnabled()) {
       throw new InvalidRequestException(
         'pool_disabled',
@@ -103,7 +130,7 @@ export class PaymentLinksService {
       );
     }
     try {
-      new PublicKey(payerPubkey);
+      new PublicKey(input.payer_pubkey);
     } catch {
       throw new InvalidRequestException(
         'invalid_payer',
@@ -114,7 +141,11 @@ export class PaymentLinksService {
 
     const row = await this.prisma.paymentLink.findUnique({
       where: { publicId: publicIdValue },
-      include: { business: { select: { name: true, viewPub: true } } },
+      include: {
+        business: {
+          select: { name: true, viewPub: true, ownerPk: true, handle: true },
+        },
+      },
     });
     if (!row) {
       throw new ResourceNotFoundException('Payment link not found.');
@@ -127,9 +158,13 @@ export class PaymentLinksService {
     try {
       const prepared = await this.pool.prepareCustomerDeposit({
         paymentLinkId: row.publicId,
-        payer: payerPubkey,
+        payer: input.payer_pubkey,
         amount: row.amountMinor,
         viewPub: row.business.viewPub,
+        ownerPk: row.business.ownerPk,
+        commitment: input.commitment,
+        proofHex: input.proof,
+        blobHex: input.blob,
       });
       return { ...prepared, rail: 'pool' };
     } catch (error) {
@@ -183,7 +218,14 @@ export class PaymentLinksService {
   async withdraw(
     business: BusinessContext,
     publicIdValue: string,
-    destination: string,
+    input: {
+      destination: string;
+      amount?: string;
+      root?: string;
+      nullifier?: string;
+      change_cm?: string;
+      proof?: string;
+    },
   ) {
     if (!poolSettlementEnabled()) {
       throw new InvalidRequestException(
@@ -192,7 +234,7 @@ export class PaymentLinksService {
       );
     }
     try {
-      new PublicKey(destination);
+      new PublicKey(input.destination);
     } catch {
       throw new InvalidRequestException(
         'invalid_destination',
@@ -213,11 +255,29 @@ export class PaymentLinksService {
     if (row.payoutTxSignature) {
       throw new StateTransitionException('This invoice was already withdrawn.');
     }
+    if (row.withdrawableAt && row.withdrawableAt.getTime() > Date.now()) {
+      throw new StateTransitionException(
+        `This invoice stays in the pool until ${row.withdrawableAt.toISOString()}.`,
+      );
+    }
+
+    const clientProof: ClientWithdrawProof | undefined =
+      input.root && input.nullifier && input.change_cm && input.proof
+        ? {
+            root: input.root,
+            nullifier: input.nullifier,
+            change_cm: input.change_cm,
+            proof: input.proof,
+            amount: input.amount,
+          }
+        : undefined;
 
     try {
       const payoutTxSignature = await this.pool.unshieldInvoice(
         row.publicId,
-        destination,
+        input.destination,
+        input.amount ? BigInt(input.amount) : undefined,
+        clientProof,
       );
       const updated = await this.prisma.paymentLink.update({
         where: { id: row.id },
@@ -239,7 +299,9 @@ export class PaymentLinksService {
     const row = await this.prisma.paymentLink.findUnique({
       where: { publicId: publicIdValue },
       include: {
-        business: { select: { name: true, viewPub: true } },
+        business: {
+          select: { name: true, viewPub: true, ownerPk: true, handle: true },
+        },
       },
     });
     if (!row) {
@@ -251,7 +313,7 @@ export class PaymentLinksService {
       throw new StateTransitionException('This invoice has expired.');
     }
     if (status === 'paid') {
-      return this.toPublic(row, row.business.name);
+      return this.toPublic(row, row.business.name, row.business);
     }
     if (status !== 'pending') {
       throw new StateTransitionException('This invoice can no longer be paid.');
@@ -269,10 +331,17 @@ export class PaymentLinksService {
       data: {
         status: PaymentLinkStatus.paid,
         paidAt: new Date(),
+        withdrawableAt: new Date(
+          Date.now() + loadConfig().pool.withdrawDelaySec * 1000,
+        ),
         txSignature: input.tx_signature?.trim() || `demo_${publicId('sig')}`,
         payerPubkey: input.payer_pubkey?.trim() || null,
       },
-      include: { business: { select: { name: true, viewPub: true } } },
+      include: {
+        business: {
+          select: { name: true, viewPub: true, ownerPk: true, handle: true },
+        },
+      },
     });
 
     if (poolSettlementEnabled() && input.tx_signature) {
@@ -290,7 +359,7 @@ export class PaymentLinksService {
         });
     }
 
-    return this.toPublic(updated, updated.business.name);
+    return this.toPublic(updated, updated.business.name, updated.business);
   }
 
   private effectiveStatus(row: PaymentLink): PaymentLinkStatus | 'expired' {
@@ -311,9 +380,16 @@ export class PaymentLinksService {
   private toMerchant(
     row: PaymentLink,
     businessName: string,
-    inPool = false,
+    openNote?: {
+      encryptedBlob: string | null;
+      leafIndex: number;
+      value: bigint;
+      commitment: string;
+    } | boolean,
   ) {
     const status = this.effectiveStatus(row);
+    const note = typeof openNote === 'object' ? openNote : null;
+    const inPool = Boolean(openNote);
     return {
       id: row.publicId,
       amount: row.amountMinor.toString(),
@@ -329,14 +405,32 @@ export class PaymentLinksService {
       payer_pubkey: row.payerPubkey,
       payout_tx_signature: row.payoutTxSignature,
       in_pool: inPool,
+      encrypted_blob: note?.encryptedBlob ?? null,
+      leaf_index: note?.leafIndex ?? null,
+      note_value: note?.value?.toString() ?? null,
+      commitment: note?.commitment ?? null,
+      withdrawable_at: row.withdrawableAt?.toISOString() ?? null,
+      amount_buckets: loadConfig().pool.amountBuckets.map((value) =>
+        value.toString(),
+      ),
       created_at: row.createdAt.toISOString(),
       url: this.linkUrl(row.publicId),
       business_name: businessName,
+      recipient_handle: row.recipientHandle,
       rail: poolSettlementEnabled() ? 'pool' : 'mock',
+      cluster: loadConfig().pool.network,
     };
   }
 
-  private toPublic(row: PaymentLink, businessName: string) {
+  private toPublic(
+    row: PaymentLink,
+    businessName: string,
+    business?: {
+      viewPub?: string | null;
+      ownerPk?: string | null;
+      handle?: string | null;
+    },
+  ) {
     const status = this.effectiveStatus(row);
     return {
       id: row.publicId,
@@ -345,13 +439,16 @@ export class PaymentLinksService {
       purpose: row.purpose,
       client_name: row.clientName,
       memo: row.memo,
-      destination_address: row.destinationAddress,
       expires_at: row.expiresAt?.toISOString() ?? null,
       status,
       paid_at: row.paidAt?.toISOString() ?? null,
       payment_tx_hash: row.txSignature,
       business_name: businessName,
+      recipient_handle: row.recipientHandle ?? business?.handle ?? null,
       rail: poolSettlementEnabled() ? 'pool' : 'mock',
+      cluster: loadConfig().pool.network,
+      owner_pk: business?.ownerPk ?? null,
+      view_pub: business?.viewPub ?? null,
     };
   }
 }

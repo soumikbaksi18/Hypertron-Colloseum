@@ -15,7 +15,8 @@
     "prisma:push": "prisma db push",
     "seed": "ts-node --compiler-options '{\"module\":\"commonjs\"}' prisma/seed.ts",
     "reset:day": "ts-node --compiler-options '{\"module\":\"commonjs\"}' prisma/reset-day.ts",
-    "pool:init": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/pool-init.ts"
+    "pool:init": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/pool-init.ts",
+    "test": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' node -r ts-node/register --test src/modules/settlement/pool/deposit-confirm.test.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

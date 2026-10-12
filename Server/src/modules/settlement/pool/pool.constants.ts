@@ -12,6 +12,8 @@ export const VK_ID = {
   deposit: 1,
   unshield: 2,
   transfer: 3,
+  transfer2: 4,
+  transferOne: 5,
 } as const;
 
 export const SEEDS = {
@@ -35,6 +37,8 @@ export const IX = {
   transfer: Buffer.from([163, 52, 200, 231, 140, 3, 69, 186]),
   withdraw: Buffer.from([183, 18, 70, 156, 148, 109, 161, 34]),
   registerMerchantTreasury: Buffer.from([25, 19, 134, 54, 240, 159, 41, 107]),
+  setTransferVk: Buffer.from([21, 159, 117, 216, 161, 13, 129, 44]),
+  transferOne: Buffer.from([156, 214, 220, 18, 66, 251, 139, 63]),
 };
 
 export const ACCOUNT_DISC = {

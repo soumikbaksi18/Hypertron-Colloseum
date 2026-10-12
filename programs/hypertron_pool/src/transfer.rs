@@ -11,6 +11,10 @@ use crate::state::{self, PoolState};
 use crate::verifier::VerifyingKeyAccount;
 use crate::PROOF_LEN;
 use crate::ZK_ELGAMAL_PROOF_PROGRAM_ID;
+
+/// Registered via `register_vk` with the 1-in / 2-out transfer circuit.
+/// Not stored on `PoolState` so existing pools do not need a resize.
+pub const TRANSFER_ONE_VK_ID: u32 = 5;
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
@@ -108,6 +112,27 @@ pub struct PoolTransfer<'info> {
 
 #[derive(Accounts)]
 #[instruction(root: [u8; 32], nullifier: [u8; 32])]
+pub struct TransferOne<'info> {
+    #[account(mut)]
+    pub fee_payer: Signer<'info>,
+    #[account(mut)]
+    pub pool: Box<Account<'info, PoolState>>,
+    #[account(mut, seeds = [b"merkle", pool.mint.as_ref()], bump = pool.tree_bump)]
+    pub merkle_tree: Box<Account<'info, MerkleTree>>,
+    pub transfer_one_vk: Box<Account<'info, VerifyingKeyAccount>>,
+    #[account(
+        init,
+        payer = fee_payer,
+        space = 8,
+        seeds = [b"nullifier", nullifier.as_ref()],
+        bump
+    )]
+    pub nullifier_pda: Account<'info, NullifierMarker>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(root: [u8; 32], nullifier: [u8; 32])]
 pub struct Withdraw<'info> {
     #[account(mut)]
     pub fee_payer: Signer<'info>,
@@ -172,6 +197,28 @@ impl MerchantTreasury {
     pub const SIZE: usize = 32 + 32 + 1 + 32 + 1;
 }
 
+#[derive(Accounts)]
+pub struct SetTransferVk<'info> {
+    pub admin: Signer<'info>,
+    #[account(mut, has_one = admin)]
+    pub pool: Box<Account<'info, PoolState>>,
+    pub transfer_vk: Box<Account<'info, VerifyingKeyAccount>>,
+}
+
+pub fn set_transfer_vk(ctx: Context<SetTransferVk>, transfer_vk_id: u32) -> Result<()> {
+    require_keys_eq!(ctx.accounts.transfer_vk.authority, ctx.accounts.admin.key());
+    require_eq!(
+        ctx.accounts.transfer_vk.vk_id,
+        transfer_vk_id,
+        PoolError::InvalidVk
+    );
+    let pool = &mut ctx.accounts.pool;
+    pool.transfer_vk = ctx.accounts.transfer_vk.key();
+    pool.transfer_vk_id = transfer_vk_id;
+    pool.next_vk_id = pool.next_vk_id.max(transfer_vk_id.saturating_add(1));
+    Ok(())
+}
+
 pub fn initialize(
     ctx: Context<Initialize>,
     deposit_vk_id: u32,
@@ -231,6 +278,7 @@ pub fn deposit(
     amount: u64,
     commitment_leaf: [u8; 32],
     proof: [u8; PROOF_LEN],
+    encrypted_blob: Vec<u8>,
 ) -> Result<()> {
     require!(amount > 0, PoolError::ZeroAmount);
     compliance::assert_allowed(
@@ -264,6 +312,12 @@ pub fn deposit(
         ctx.accounts.mint.decimals,
     )?;
     commitment::emit_added(&ctx.accounts.merkle_tree, commitment_leaf, index)?;
+    if !encrypted_blob.is_empty() {
+        emit!(NoteBlob {
+            index,
+            blob: encrypted_blob,
+        });
+    }
     Ok(())
 }
 
@@ -295,6 +349,44 @@ pub fn transfer(
     emit!(PrivateTransfer {
         nullifier_1,
         nullifier_2,
+        out_cm1,
+        out_cm2,
+        note_1,
+        note_2,
+    });
+    Ok(())
+}
+
+pub fn transfer_one(
+    ctx: Context<TransferOne>,
+    root: [u8; 32],
+    nullifier: [u8; 32],
+    out_cm1: [u8; 32],
+    out_cm2: [u8; 32],
+    proof: [u8; PROOF_LEN],
+    note_1: Vec<u8>,
+    note_2: Vec<u8>,
+) -> Result<()> {
+    commitment::require_known_root(&ctx.accounts.pool, &root)?;
+    require_keys_eq!(
+        ctx.accounts.transfer_one_vk.authority,
+        ctx.accounts.pool.admin,
+        PoolError::InvalidVk
+    );
+    require_eq!(
+        ctx.accounts.transfer_one_vk.vk_id,
+        TRANSFER_ONE_VK_ID,
+        PoolError::InvalidVk
+    );
+    let inputs = [root, nullifier, out_cm1, out_cm2];
+    crate::verifier::verify(&ctx.accounts.transfer_one_vk, &proof, &inputs)?;
+
+    commitment::insert(&mut ctx.accounts.merkle_tree, &mut ctx.accounts.pool, out_cm1)?;
+    commitment::insert(&mut ctx.accounts.merkle_tree, &mut ctx.accounts.pool, out_cm2)?;
+
+    emit!(crate::nullifier::NullifierSpent { nullifier });
+    emit!(PrivateTransferOne {
+        nullifier,
         out_cm1,
         out_cm2,
         note_1,
@@ -383,9 +475,24 @@ pub fn register_merchant_treasury(
 }
 
 #[event]
+pub struct NoteBlob {
+    pub index: u64,
+    pub blob: Vec<u8>,
+}
+
+#[event]
 pub struct PrivateTransfer {
     pub nullifier_1: [u8; 32],
     pub nullifier_2: [u8; 32],
+    pub out_cm1: [u8; 32],
+    pub out_cm2: [u8; 32],
+    pub note_1: Vec<u8>,
+    pub note_2: Vec<u8>,
+}
+
+#[event]
+pub struct PrivateTransferOne {
+    pub nullifier: [u8; 32],
     pub out_cm1: [u8; 32],
     pub out_cm2: [u8; 32],
     pub note_1: Vec<u8>,

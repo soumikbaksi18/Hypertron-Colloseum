@@ -1,0 +1,101 @@
+# Render Blueprint — Colosseum Solana stack (not hypertron-api / Stellar).
+# Dashboard → New → Blueprint → this repo.
+# Paste DATABASE_URL from a new Supabase Postgres project (do not use Atlas Mongo).
+# Set SOLANA_* after `anchor deploy --provider.cluster devnet` and `npm run pool:init`.
+
+services:
+  - type: web
+    name: hypertron-colosseum-api
+    runtime: node
+    plan: starter
+    region: oregon
+    rootDir: Server
+    buildCommand: npm ci && npx prisma generate && npm run build
+    startCommand: npx prisma db push && node dist/main.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: PUBLIC_APP_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: 'true'
+      - key: COOKIE_SAMESITE
+        value: none
+      - key: SETTLEMENT_PROVIDER
+        value: pool
+      - key: SOLANA_RPC_URL
+        sync: false
+      - key: SOLANA_RELAYER_KEYPAIR
+        sync: false
+      - key: POOL_PROGRAM_ID
+        value: 9HQsgGDHgYw3N8PGnh9EWrUGRHgmp7tmdGaxuBHHA335
+      - key: POOL_NETWORK
+        value: devnet
+      - key: POOL_MINT
+        value: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+      - key: POOL_KEYS_DIR
+        value: ./keys
+      - key: POOL_AUTO_UNSHIELD
+        value: 'false'
+      - key: POOL_WITHDRAW_DELAY_SEC
+        value: '3600'
+      - key: POOL_AMOUNT_BUCKETS
+        value: 100000,500000,1000000,5000000,10000000
+      - key: POOL_INDEXER_URL
+        sync: false
+      - key: POOL_RELAY_INTERVAL_MS
+        value: '15000'
+      - key: POOL_RELAY_BATCH_SIZE
+        value: '8'
+
+  - type: web
+    name: hypertron-colosseum-indexer
+    runtime: node
+    plan: starter
+    region: oregon
+    rootDir: Indexer
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/main.js
+    healthCheckPath: /health
+    disk:
+      name: indexer-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: INDEXER_DATA_DIR
+        value: /var/data
+      - key: SOLANA_RPC_URL
+        sync: false
+      - key: POOL_PROGRAM_ID
+        value: 9HQsgGDHgYw3N8PGnh9EWrUGRHgmp7tmdGaxuBHHA335
+      - key: CORS_ORIGINS
+        sync: false
+
+  - type: web
+    name: hypertron-colosseum-web
+    runtime: static
+    rootDir: Frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_HYPERTRON_API_URL
+        sync: false
+      - key: VITE_SOLANA_RPC_URL
+        sync: false
+      - key: VITE_INDEXER_URL
+        sync: false
+      - key: VITE_INDEXER_NETWORK
+        value: devnet

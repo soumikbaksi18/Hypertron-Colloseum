@@ -19,6 +19,19 @@ export function bytesToHex(bytes: Uint8Array): string {
   return `0x${Buffer.from(bytes).toString('hex')}`;
 }
 
+/** eph_pub (32) + ChaCha20-Poly1305 ciphertext+tag (at least 16). */
+const NOTE_BLOB_MIN_BYTES = 48;
+
+export function isNoteBlob(hex: string | null | undefined): hex is string {
+  if (!hex) return false;
+  const body = strip0x(hex);
+  return body.length >= NOTE_BLOB_MIN_BYTES * 2 && /^[0-9a-fA-F]+$/.test(body);
+}
+
+export function hexBlobOrNull(hex: string | null | undefined): string | null {
+  return isNoteBlob(hex) ? `0x${strip0x(hex)}` : null;
+}
+
 export function hexToFixed(hex: string, length: number): Buffer {
   const bytes = hexToBytes(hex);
   if (bytes.length !== length) {

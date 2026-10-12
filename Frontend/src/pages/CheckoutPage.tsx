@@ -1,20 +1,41 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Transaction } from '@solana/web3.js';
 
-import { ApiError } from '../lib/http';
-import { money } from '../lib/format';
-import { paymentLinksApi, type PaymentLink } from '../lib/payment-links';
-import { bytesToBase64, getPhantom, shortenAddress } from '../lib/phantom';
 import { ExplorerTxLink } from '../components/ExplorerTxLink';
+import { useWalletSession } from '../context/WalletContext';
+import { phantomClusterError } from '../lib/cluster';
+import { DepositPreflightError } from '../lib/deposit-preflight';
+import { money } from '../lib/format';
+import { ApiError } from '../lib/http';
+import { paymentLinksApi, type PaymentLink } from '../lib/payment-links';
+import {
+  addMoney,
+  privateBalance,
+  requirePhantom,
+  sendPrivate,
+  syncIncomingNotes,
+} from '../lib/private-pay';
+import { loadShieldKeys } from '../lib/shield-keys';
+import { useDepositPreflight } from '../lib/use-deposit-preflight';
 import './CheckoutPage.css';
 
 export function CheckoutPage() {
   const { id } = useParams<{ id: string }>();
+  const { session, signIn, signingIn, refresh } = useWalletSession();
   const [link, setLink] = useState<PaymentLink | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState('Waiting for Phantom…');
+  const [balance, setBalance] = useState('0');
+  const keys = loadShieldKeys();
+  const invoiceMinor = link ? BigInt(link.amount) : 0n;
+  const privateAvail = BigInt(balance);
+  const shortfall = invoiceMinor > privateAvail ? invoiceMinor - privateAvail : 0n;
+  const { preflight, checking } = useDepositPreflight({
+    payer: session?.wallet_address,
+    amountMinor: shortfall,
+    enabled: Boolean(session && link && shortfall > 0n && link.status !== 'paid'),
+  });
 
   useEffect(() => {
     if (!id) return;
@@ -26,72 +47,75 @@ export function CheckoutPage() {
       );
   }, [id]);
 
+  useEffect(() => {
+    if (!keys) {
+      setBalance('0');
+      return;
+    }
+    void syncIncomingNotes(keys)
+      .then(() => setBalance(privateBalance().toString()))
+      .catch(() => setBalance(privateBalance().toString()));
+  }, [keys, session?.owner_pk]);
+
   async function pay() {
     if (!id || !link) return;
-    const phantom = getPhantom();
-    if (!phantom) {
-      window.open('https://phantom.app/', '_blank', 'noopener,noreferrer');
-      setError('Install Phantom to pay this invoice.');
+    if (!session) {
+      await signIn();
+      await refresh();
+      return;
+    }
+    if (!keys) {
+      setError('Import shield keys in Settings, or sign in again on this browser.');
+      return;
+    }
+    if (!link.owner_pk || !link.view_pub) {
+      setError('This invoice has no Hypertron payee keys yet.');
       return;
     }
 
     setBusy(true);
     setError(null);
     try {
+      const phantom = requirePhantom();
       const connected = await phantom.connect();
-      const payer = connected.publicKey.toBase58();
-
-      if (link.rail === 'pool') {
-        setBusyLabel('Proving a shielded deposit…');
-        const prepared = await paymentLinksApi.prepareShield(id, payer);
-        const raw = Uint8Array.from(
-          atob(prepared.transaction),
-          (ch) => ch.charCodeAt(0),
-        );
-        const tx = Transaction.from(raw);
-        setBusyLabel('Confirm in Phantom…');
-        const signed = await phantom.signTransaction(tx);
-        setBusyLabel('Landing on localnet…');
-        const serialized = signed.serialize();
-        const bytes =
-          serialized instanceof Uint8Array
-            ? serialized
-            : Uint8Array.from(serialized);
-        const next = await paymentLinksApi.broadcast(id, {
-          signed_transaction: bytesToBase64(bytes),
-          payer_pubkey: payer,
+      const need = BigInt(link.amount);
+      let available = privateBalance();
+      if (available < need) {
+        setBusyLabel('Checking wallet…');
+        await addMoney({
+          keys,
+          payer: connected.publicKey.toBase58(),
+          expectedPayer: session.wallet_address,
+          amountMinor: need - available,
+          signTransaction: (tx) => phantom.signTransaction(tx),
         });
-        setLink(next);
-        return;
+        available = privateBalance();
       }
-
-      const message = [
-        'Hypertron payment',
-        `Invoice: ${link.id}`,
-        `Amount: ${money(link.amount, link.currency)}`,
-        `To: ${link.destination_address}`,
-      ].join('\n');
-      const signed = await phantom.signMessage(
-        new TextEncoder().encode(message),
-        'utf8',
-      );
-      const signatureBytes =
-        signed instanceof Uint8Array ? signed : signed.signature;
+      if (available < need) {
+        throw new Error('Private balance is still short after adding money.');
+      }
+      setBusyLabel('Paying privately…');
+      const signature = await sendPrivate({
+        keys,
+        amountMinor: need,
+        recipientOwnerPk: link.owner_pk,
+        recipientView: link.view_pub,
+        paymentLinkId: id,
+      });
       const next = await paymentLinksApi.confirm(id, {
-        tx_signature: bytesToBase64(signatureBytes),
-        payer_pubkey: payer,
+        tx_signature: signature,
+        payer_pubkey: connected.publicKey.toBase58(),
       });
       setLink(next);
+      setBalance(privateBalance().toString());
     } catch (err) {
       const fallback =
-        err instanceof ApiError ? err.message : 'Payment was not completed.';
+        err instanceof DepositPreflightError || err instanceof ApiError || err instanceof Error
+          ? err.message
+          : 'Payment was not completed.';
       const looksLikeWrongCluster =
         /simulat|blockhash|network|0x1|not been approved/i.test(fallback);
-      setError(
-        link.rail === 'pool' && looksLikeWrongCluster
-          ? 'Phantom simulated this on the wrong cluster. Switch it to Localhost (http://127.0.0.1:8899), then Shield and pay again. If it still warns, confirm anyway — we submit the signed deposit to localnet.'
-          : fallback,
-      );
+      setError(looksLikeWrongCluster ? phantomClusterError() : fallback);
     } finally {
       setBusy(false);
       setBusyLabel('Waiting for Phantom…');
@@ -113,6 +137,7 @@ export function CheckoutPage() {
 
   const paid = link.status === 'paid';
   const pool = link.rail === 'pool';
+  const funded = BigInt(balance) >= BigInt(link.amount);
 
   return (
     <div className="checkout">
@@ -126,6 +151,11 @@ export function CheckoutPage() {
         <p>{link.purpose ?? 'Private invoice'}</p>
         <p className="checkout-amount">{money(link.amount, link.currency)}</p>
         {link.client_name && <p>For {link.client_name}</p>}
+        {link.recipient_handle && (
+          <p className="mono" style={{ color: 'var(--ink-faint)' }}>
+            To {link.recipient_handle}
+          </p>
+        )}
       </div>
 
       <div className="checkout-main panel">
@@ -139,20 +169,23 @@ export function CheckoutPage() {
             {paid
               ? 'This invoice is settled. You can close this page.'
               : pool
-                ? 'Switch Phantom to Localhost (http://127.0.0.1:8899). A red mainnet simulation warning is expected — confirm anyway; we land the signed deposit on localnet. The merchant withdraws from the pool to any address.'
-                : 'Sign with Phantom to confirm. Funds settle to the merchant payout address.'}
+                ? session
+                  ? funded
+                    ? 'Pay from your private USDC. The amount stays in the pool.'
+                    : 'Add money from Phantom, then pay. Adding money is public; the payment is not.'
+                  : 'Sign in with Phantom to pay from your Hypertron wallet.'
+                : 'Sign with Phantom to confirm this invoice.'}
           </p>
-          <p
-            className="mono"
-            style={{
-              margin: 0,
-              fontSize: '0.95rem',
-              color: 'var(--ink-faint)',
-              wordBreak: 'break-all',
-            }}
-          >
-            {shortenAddress(link.destination_address, 6)}
-          </p>
+          {pool && session && !paid && (
+            <p className="mono" style={{ margin: 0, fontSize: '0.95rem', color: 'var(--ink-faint)' }}>
+              Private balance {money(balance, 'USDC')}
+            </p>
+          )}
+          {pool && session && !paid && !funded && preflight && !preflight.ok && !checking ? (
+            <p className="gate-error" role="alert">
+              {preflight.error}
+            </p>
+          ) : null}
           {link.memo && <p style={{ margin: 0 }}>Memo: {link.memo}</p>}
           {error && <p className="gate-error">{error}</p>}
           {paid ? (
@@ -160,16 +193,32 @@ export function CheckoutPage() {
               <p style={{ margin: 0, color: 'var(--mint)' }}>Receipt recorded.</p>
               <ExplorerTxLink
                 signature={link.payment_tx_hash ?? link.tx_signature}
+                cluster={link.cluster}
               />
             </>
           ) : (
             <button
               type="button"
               className="gate-submit"
-              disabled={busy}
+              disabled={
+                busy ||
+                signingIn ||
+                Boolean(
+                  pool &&
+                    session &&
+                    !funded &&
+                    (checking || (preflight && !preflight.ok)),
+                )
+              }
               onClick={() => void pay()}
             >
-              {busy ? busyLabel : pool ? 'Shield and pay' : 'Pay with Phantom'}
+              {busy || signingIn
+                ? busyLabel
+                : !session
+                  ? 'Sign in to pay'
+                  : funded
+                    ? 'Pay'
+                    : 'Add money and pay'}
             </button>
           )}
         </div>
