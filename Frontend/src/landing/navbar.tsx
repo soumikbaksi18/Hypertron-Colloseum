@@ -17,21 +17,13 @@ const links = [
 
 function LogoMark() {
   return (
-    <span aria-hidden className="landing-nav-logo relative inline-flex size-5 shrink-0 items-center justify-center">
-      <img
-        src="/media/logo_white.png"
-        alt=""
-        width={28}
-        height={28}
-        className="landing-nav-logo-light absolute inset-0 size-full object-contain"
-      />
-      <img
-        src="/media/logo_black.png"
-        alt=""
-        width={28}
-        height={28}
-        className="landing-nav-logo-dark absolute inset-0 size-full object-contain"
-      />
+    <span aria-hidden className="landing-nav-logo relative inline-grid size-5 shrink-0 grid-cols-3 gap-[2px]">
+      {[...Array(9)].map((_, i) => (
+        <span
+          key={i}
+          className="landing-nav-logo-dot size-[4px] rounded-full bg-current"
+        />
+      ))}
     </span>
   );
 }
