@@ -5,6 +5,15 @@ export type PhantomProvider = {
     publicKey: { toBase58(): string };
   }>;
   disconnect: () => Promise<void>;
+  signIn?: (input: {
+    domain: string;
+    statement?: string;
+    uri?: string;
+    version?: string;
+    nonce?: string;
+    issuedAt?: string;
+    address?: string;
+  }) => Promise<unknown>;
   signMessage: (
     message: Uint8Array,
     encoding?: string,
