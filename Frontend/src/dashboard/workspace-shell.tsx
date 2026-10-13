@@ -1,47 +1,51 @@
 import { startTransition, useCallback, useEffect, useState } from 'react';
 import {
+  BriefcaseBusiness,
   Code2,
-  CreditCard,
-  LayoutDashboard,
-  ScanEye,
+  Landmark,
+  LayoutGrid,
+  Receipt,
   Settings,
-  Wallet,
+  ShieldCheck,
 } from 'lucide-react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
-import { CollectPaymentsPage } from '../pages/app/CollectPaymentsPage';
-import { DevelopersPage } from '../pages/app/DevelopersPage';
-import { SettingsPage } from '../pages/app/SettingsPage';
-import { WalletPage } from '../pages/app/WalletPage';
+
+import { WorkspacePayments } from './workspace-payments';
+import { WorkspaceTreasury } from './workspace-treasury';
+import { WorkspaceDevelopers } from './workspace-developers';
+import { WorkspaceCompliance } from './workspace-compliance';
+import { WorkspaceSettings } from './workspace-settings';
+import { WorkspaceWorkspaces } from './workspace-workspaces';
 import { useWalletSession } from '../context/WalletContext';
 import { setAccountKind } from '../lib/account-kind';
 import { getWorkspace, touchWorkspace } from '../lib/workspaces';
-import { AuditorPage } from './auditor-page';
 import { DashboardChrome } from './chrome';
 import { PrivacyOnboardingGate } from './privacy-onboarding-gate';
 import { WorkspaceOverview } from './workspace-overview';
 import {
-  WORKSPACE_TABS,
   isWorkspaceTab,
   type WorkspaceTab,
 } from './workspace-types';
 
-const TAB_ICONS = {
-  overview: LayoutDashboard,
-  payments: CreditCard,
-  treasury: Wallet,
-  developers: Code2,
-  auditor: ScanEye,
-  settings: Settings,
-} as const;
+const WORKSPACE_NAV = [
+  { id: 'overview', label: 'Overview', icon: LayoutGrid },
+  { id: 'payments', label: 'Payments', icon: Receipt },
+  { id: 'treasury', label: 'Treasury', icon: Landmark },
+  { id: 'developers', label: 'Developers', icon: Code2 },
+  { id: 'compliance', label: 'Compliance', icon: ShieldCheck },
+  { id: 'workspaces', label: 'Workspaces', icon: BriefcaseBusiness },
+  { id: 'settings', label: 'Settings', icon: Settings, dividerBefore: true },
+] as const;
 
 const TAB_META: Record<WorkspaceTab, { label: string; searchPlaceholder: string }> = {
-  overview: { label: 'Overview', searchPlaceholder: 'Search workspace...' },
+  overview: { label: 'Overview', searchPlaceholder: 'Search payments, contacts...' },
   payments: { label: 'Payments', searchPlaceholder: 'Search payments' },
   treasury: { label: 'Treasury', searchPlaceholder: 'Search treasury' },
-  developers: { label: 'Developers', searchPlaceholder: 'Search API keys' },
-  auditor: { label: 'Auditor', searchPlaceholder: 'Search auditor' },
-  settings: { label: 'Settings', searchPlaceholder: 'Search settings' },
+  developers: { label: 'Developers', searchPlaceholder: 'Search API keys, webhooks...' },
+  auditor: { label: 'Auditor', searchPlaceholder: 'Search auditor...' },
+  workspaces: { label: 'Workspaces', searchPlaceholder: 'Search workspaces...' },
+  settings: { label: 'Settings', searchPlaceholder: 'Search settings...' },
 };
 
 function readTabFromUrl(): WorkspaceTab {
@@ -53,12 +57,10 @@ export function WorkspaceShell() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const { session } = useWalletSession();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<WorkspaceTab>('overview');
-  const [ready, setReady] = useState(false);
+  const [tab, setTab] = useState<WorkspaceTab>(() => readTabFromUrl());
 
   useEffect(() => {
     setTab(readTabFromUrl());
-    setReady(true);
   }, [workspaceId]);
 
   useEffect(() => {
@@ -76,23 +78,41 @@ export function WorkspaceShell() {
     });
   }, []);
 
+  const selectWorkspaceNav = useCallback(
+    (next: string) => {
+      if (next === 'compliance') {
+        selectTab('auditor');
+        return;
+      }
+      if (isWorkspaceTab(next)) selectTab(next);
+    },
+    [selectTab],
+  );
+
+  const switchMode = useCallback(
+    (next: 'personal' | 'workspaces') => {
+      if (!session) return;
+      if (next === 'personal') setAccountKind(session.wallet_address, 'individual');
+      navigate('/app');
+    },
+    [navigate, session],
+  );
+
   if (!session || !workspaceId) return <Navigate to="/app" replace />;
 
   const workspace = getWorkspace(session, workspaceId);
   if (!workspace) return <Navigate to="/app" replace />;
 
   const meta = TAB_META[tab];
-  const navItems = WORKSPACE_TABS.map((item) => ({
-    ...item,
-    icon: TAB_ICONS[item.id],
-  }));
+  const navItems = [...WORKSPACE_NAV];
+  const activeNavId = tab === 'auditor' ? 'compliance' : tab;
 
   return (
     <PrivacyOnboardingGate>
     <DashboardChrome
       navItems={navItems}
-      activeId={tab}
-      onSelect={selectTab}
+      activeId={activeNavId}
+      onSelect={selectWorkspaceNav}
       breadcrumb={`${workspace.name} / ${meta.label}`}
       searchPlaceholder={meta.searchPlaceholder}
       identity={{
@@ -100,47 +120,72 @@ export function WorkspaceShell() {
         subtitle: session.wallet_address,
       }}
       mode="workspaces"
-      onModeChange={(next) => {
-        if (next === 'personal') {
-          setAccountKind(session.wallet_address, 'individual');
-          navigate('/app');
-          return;
-        }
-        navigate('/app');
-      }}
+      variant="canvas"
+      overviewScaled={tab === 'overview'}
+      hideHeader={
+        tab === 'overview' ||
+        tab === 'payments' ||
+        tab === 'treasury' ||
+        tab === 'developers' ||
+        tab === 'auditor' ||
+        tab === 'settings' ||
+        tab === 'workspaces'
+      }
+      onModeChange={switchMode}
     >
-      {!ready ? null : (
-        <>
-          {tab === 'overview' ? (
-            <WorkspaceOverview
-              workspace={workspace}
-              onCreatePaymentLink={() => selectTab('payments')}
-              onViewAllPayments={() => selectTab('payments')}
-            />
-          ) : null}
-          {tab === 'payments' ? (
-            <div className="dash-embed">
-              <CollectPaymentsPage />
-            </div>
-          ) : null}
-          {tab === 'treasury' ? (
-            <div className="dash-embed">
-              <WalletPage />
-            </div>
-          ) : null}
-          {tab === 'developers' ? (
-            <div className="dash-embed">
-              <DevelopersPage />
-            </div>
-          ) : null}
-          {tab === 'auditor' ? <AuditorPage /> : null}
-          {tab === 'settings' ? (
-            <div className="dash-embed">
-              <SettingsPage />
-            </div>
-          ) : null}
-        </>
-      )}
+      {tab === 'overview' ? (
+        <WorkspaceOverview
+          workspace={workspace}
+          searchPlaceholder={meta.searchPlaceholder}
+          identityTitle={session.name.trim() || workspace.name}
+          onCreatePaymentLink={() => selectTab('payments')}
+          onViewAllPayments={() => selectTab('payments')}
+          onModeChange={switchMode}
+        />
+      ) : tab === 'payments' ? (
+        <WorkspacePayments
+          workspace={workspace}
+          searchPlaceholder={meta.searchPlaceholder}
+          identityTitle={session.name.trim() || workspace.name}
+          onModeChange={switchMode}
+        />
+      ) : tab === 'treasury' ? (
+        <WorkspaceTreasury
+          workspace={workspace}
+          searchPlaceholder={meta.searchPlaceholder}
+          identityTitle={session.name.trim() || workspace.name}
+          onModeChange={switchMode}
+        />
+      ) : tab === 'developers' ? (
+        <WorkspaceDevelopers
+          workspace={workspace}
+          searchPlaceholder={meta.searchPlaceholder}
+          identityTitle={session.name.trim() || workspace.name}
+          onModeChange={switchMode}
+        />
+      ) : tab === 'auditor' ? (
+        <WorkspaceCompliance
+          workspace={workspace}
+          searchPlaceholder={meta.searchPlaceholder}
+          identityTitle={session.name.trim() || workspace.name}
+          onModeChange={switchMode}
+        />
+      ) : tab === 'workspaces' ? (
+        <WorkspaceWorkspaces
+          currentWorkspaceId={workspaceId}
+          searchPlaceholder={meta.searchPlaceholder}
+          identityTitle={session.name.trim() || workspace.name}
+          onModeChange={switchMode}
+        />
+      ) : tab === 'settings' ? (
+        <WorkspaceSettings
+          workspace={workspace}
+          searchPlaceholder={meta.searchPlaceholder}
+          identityTitle={session.name.trim() || workspace.name}
+          onModeChange={switchMode}
+          onOpenCompliance={() => selectTab('auditor')}
+        />
+      ) : null}
     </DashboardChrome>
     </PrivacyOnboardingGate>
   );

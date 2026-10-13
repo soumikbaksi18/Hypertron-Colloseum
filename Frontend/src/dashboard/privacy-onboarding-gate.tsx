@@ -14,7 +14,7 @@ export function PrivacyOnboardingGate({
     session ? hasPrivacyOnboarding(session.wallet_address) : false,
   );
 
-  if (!session) return null;
+  if (!session) return <>{children}</>;
   if (!done && !hasPrivacyOnboarding(session.wallet_address)) {
     return <PrivacyOnboarding onDone={() => setDone(true)} />;
   }

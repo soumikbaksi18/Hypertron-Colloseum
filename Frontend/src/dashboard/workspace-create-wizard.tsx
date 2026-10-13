@@ -31,9 +31,12 @@ import { useWalletSession } from '../context/WalletContext';
 import { setAccountKind } from '../lib/account-kind';
 import { sessionApi } from '../lib/session';
 import { saveWorkspace } from '../lib/workspaces';
+import { AccountKindSetup } from './account-kind-setup';
+import { DashboardChrome } from './chrome';
 import { cn } from './cn';
 import { HypertronLogoMark } from './logo-mark';
 import { PrivacyOnboardingGate } from './privacy-onboarding-gate';
+import { SETUP_PREVIEW_NAV } from './setup-nav';
 import {
   ACCOUNT_KINDS,
   BUSINESS_STEPS,
@@ -179,6 +182,55 @@ export function WorkspaceCreateWizard() {
 
   const onPrimary =
     draft.currentStep === lastStep(draft) ? () => void submit() : goNext;
+
+  const identityTitle =
+    (session?.name ?? '').trim() ||
+    session?.handle?.trim() ||
+    'Personal';
+
+  if (hydrated && draft.currentStep === 1 && session) {
+    return (
+      <PrivacyOnboardingGate>
+        <DashboardChrome
+          variant="canvas"
+          hideHeader
+          navItems={SETUP_PREVIEW_NAV}
+          activeId=""
+          onSelect={() => undefined}
+          breadcrumb="Account / Setup"
+          searchPlaceholder="Search setup..."
+          identity={{
+            title: identityTitle,
+            subtitle: session.handle ?? session.wallet_address,
+          }}
+        >
+          {error ? (
+            <p
+              role="alert"
+              className="mb-4 rounded-xl border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
+            >
+              {error}
+            </p>
+          ) : null}
+          <AccountKindSetup
+            selected={
+              draft.accountKind === 'individual' || draft.accountKind === 'business'
+                ? draft.accountKind
+                : null
+            }
+            onSelect={(kind) => update({ accountKind: kind, currentStep: 1 })}
+            onContinue={goNext}
+            continueDisabled={
+              draft.accountKind !== 'individual' && draft.accountKind !== 'business'
+            }
+            continueLabel="Continue"
+            identityTitle={identityTitle}
+            searchPlaceholder="Search setup..."
+          />
+        </DashboardChrome>
+      </PrivacyOnboardingGate>
+    );
+  }
 
   return (
     <PrivacyOnboardingGate>

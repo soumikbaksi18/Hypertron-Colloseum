@@ -55,7 +55,7 @@ export function AuditorPage() {
     setBusy(true);
     setError(null);
     try {
-      const opened = await openAuditorBooks(pasted, session.handle ?? null);
+      const opened = await openAuditorBooks(pasted, session?.handle ?? null);
       setBooksFor(opened.handle);
       setPayments(opened.payments);
       if (!opened.payments.length) {
