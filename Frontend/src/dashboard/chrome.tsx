@@ -209,7 +209,7 @@ export function DashboardChrome({
           mode={mode}
           onModeChange={onModeChange}
           showModeToggle={false}
-          className="relative z-20 border-r border-white/10 bg-[#07101f]"
+          className="relative z-20 border-r border-white/10 bg-[#060d1a]"
         />
 
         <section

@@ -58,7 +58,7 @@ export const INDIVIDUAL_STEPS = ['Account type', 'Your profile'] as const;
 
 export const DEFAULT_DRAFT: WorkspaceDraft = {
   currentStep: 1,
-  accountKind: '',
+  accountKind: 'individual',
   workspaceType: 'web3-startup',
   name: '',
   website: '',

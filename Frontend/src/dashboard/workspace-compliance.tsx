@@ -39,11 +39,13 @@ export function WorkspaceCompliance({
   searchPlaceholder,
   identityTitle,
   onModeChange,
+  breadcrumbVariant = 'workspace',
 }: {
-  workspace: WorkspaceView;
+  workspace?: WorkspaceView;
   searchPlaceholder: string;
   identityTitle: string;
   onModeChange?: (mode: DashboardMode) => void;
+  breadcrumbVariant?: 'workspace' | 'account';
 }) {
   const { session } = useWalletSession();
   const keys = loadShieldKeys();
@@ -95,7 +97,9 @@ export function WorkspaceCompliance({
     <div className="dash-compliance flex w-full flex-col gap-4 pb-6">
       <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
         <nav className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px] text-white/45">
-          <span className="text-white/55">{workspace.name}</span>
+          <span className="text-white/55">
+            {breadcrumbVariant === 'account' ? 'Account' : workspace?.name ?? 'Personal'}
+          </span>
           <ChevronRight className="size-3 text-white/30" strokeWidth={2} />
           <span className="text-white/55">Compliance</span>
           <ChevronRight className="size-3 text-white/30" strokeWidth={2} />
