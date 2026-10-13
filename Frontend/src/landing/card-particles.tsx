@@ -23,6 +23,17 @@ function push(points: Particle[], x: number, y: number, z: number, size: number,
   points.push({ x, y, z, size, alpha, spark, ox: 0, oy: 0 });
 }
 
+function orbitTilted(points: Particle[], rx: number, ry: number, tilt: number, count: number) {
+  const cos = Math.cos(tilt);
+  const sin = Math.sin(tilt);
+  for (let i = 0; i < count; i += 1) {
+    const angle = (i / count) * Math.PI * 2;
+    const x = Math.cos(angle) * rx;
+    const y = Math.sin(angle) * ry;
+    push(points, x * cos - y * sin, x * sin + y * cos, Math.sin(angle) * 0.08, 1.05, 0.55);
+  }
+}
+
 function orbit(points: Particle[], rx: number, ry: number, rz: number, count: number, yShift: number) {
   for (let i = 0; i < count; i += 1) {
     const angle = (i / count) * Math.PI * 2;
@@ -41,43 +52,53 @@ function orbit(points: Particle[], rx: number, ry: number, rz: number, count: nu
 
 function buildWallet() {
   const points: Particle[] = [];
-  const width = 1.05;
-  const height = 0.72;
-  for (let i = 0; i < 320; i += 1) {
-    const t = i / 320;
-    const side = Math.floor(t * 4);
-    const u = (t * 4) % 1;
-    const radius = 0.16;
-    let x = 0;
-    let y = 0;
-    if (side === 0) {
-      x = -width + radius + u * (width * 2 - radius * 2);
-      y = height;
-    } else if (side === 1) {
-      x = width;
-      y = height - radius - u * (height * 2 - radius * 2);
-    } else if (side === 2) {
-      x = width - radius - u * (width * 2 - radius * 2);
-      y = -height;
-    } else {
-      x = -width;
-      y = -height + radius + u * (height * 2 - radius * 2);
-    }
-    push(points, x, y, (Math.random() - 0.5) * 0.08, 1.45, 0.9);
-    if (i % 4 === 0) push(points, x, y, 0.16, 1.1, 0.35);
+  const width = 0.9;
+  const height = 0.58;
+  const radius = 0.16;
+  const dot = (x: number, y: number, alpha = 0.8) => {
+    push(points, x, y, (Math.random() - 0.5) * 0.04, 1.15, alpha);
+  };
+
+  for (let i = 0; i <= 42; i += 1) {
+    const along = -width + radius + (i / 42) * (width * 2 - radius * 2);
+    dot(along, height);
+    dot(along, -height);
   }
-  for (let i = 0; i < 180; i += 1) {
-    const x = (Math.random() - 0.5) * width * 1.85;
-    const y = (Math.random() - 0.5) * height * 1.75;
-    if (Math.abs(x) > width - 0.05 || Math.abs(y) > height - 0.05) continue;
-    push(points, x, y, (Math.random() - 0.5) * 0.1, 1.05, 0.28);
+  for (let i = 0; i <= 24; i += 1) {
+    const along = height - radius - (i / 24) * (height * 2 - radius * 2);
+    dot(width, along);
+    dot(-width, along);
   }
+  for (let i = 1; i < 7; i += 1) {
+    const angle = (i / 7) * (Math.PI / 2);
+    dot(width - radius + Math.cos(angle) * radius, height - radius + Math.sin(angle) * radius);
+    dot(width - radius + Math.cos(angle) * radius, -height + radius - Math.sin(angle) * radius);
+    dot(-width + radius - Math.cos(angle) * radius, height - radius + Math.sin(angle) * radius);
+    dot(-width + radius - Math.cos(angle) * radius, -height + radius - Math.sin(angle) * radius);
+  }
+
+  const seam = height * 0.28;
+  for (let i = 0; i <= 34; i += 1) {
+    const along = -width + 0.08 + (i / 34) * (width * 2 - 0.16);
+    dot(along, seam, 0.62);
+  }
+
+  const claspX = width * 0.38;
+  const claspY = -height * 0.22;
+  for (let i = 0; i < 16; i += 1) {
+    const angle = (i / 16) * Math.PI * 2;
+    push(points, claspX + Math.cos(angle) * 0.085, claspY + Math.sin(angle) * 0.085, 0.05, 1.15, 0.9);
+  }
+
   for (let i = 0; i < 36; i += 1) {
-    const angle = (i / 36) * Math.PI * 2;
-    push(points, 0.62 + Math.cos(angle) * 0.09, 0.02 + Math.sin(angle) * 0.09, 0.2, 1.3, 0.95);
+    const x = (Math.random() - 0.5) * width * 1.45;
+    const y = -Math.random() * (height - 0.12);
+    if (Math.abs(x) > width - 0.14 || y > seam - 0.08) continue;
+    push(points, x, y, 0, 1, 0.2);
   }
-  orbit(points, 1.45, 0.38, 0.62, 150, -0.05);
-  orbit(points, 1.05, 0.22, 0.4, 80, 0.35);
+
+  orbitTilted(points, 1.22, 0.78, -0.42, 64);
+  orbitTilted(points, 0.98, 0.52, 0.62, 42);
   return points;
 }
 
@@ -145,7 +166,10 @@ export function CardParticles({ shape }: { shape: CardParticleShape }) {
 
     const particles = BUILDERS[shape]();
     const pointer = { x: 0, y: 0, inside: false };
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
     let frame = 0;
+    let elapsed = 0;
+    let last = performance.now();
     let running = true;
     let visible = true;
 
@@ -170,9 +194,12 @@ export function CardParticles({ shape }: { shape: CardParticleShape }) {
       if (!frame) frame = requestAnimationFrame(draw);
     }
 
-    function draw() {
+    function draw(now: number) {
       if (!running) return;
       frame = 0;
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      if (!reduce.matches && visible) elapsed += dt;
       if (!visible && !pointer.inside) return;
 
       const width = canvas!.clientWidth;
@@ -182,14 +209,17 @@ export function CardParticles({ shape }: { shape: CardParticleShape }) {
       ctx!.imageSmoothingEnabled = false;
       ctx!.clearRect(0, 0, width, height);
 
-      const cx = width * 0.62;
-      const cy = height * 0.4;
-      const scale = Math.min(width, height) * 0.52;
+      const spin = elapsed * 0.055;
+      const cos = Math.cos(spin);
+      const sin = Math.sin(spin);
+      const cx = width * 0.5;
+      const cy = height * 0.5;
+      const scale = Math.min(width, height) * 0.4;
       let settling = false;
 
       for (const particle of particles) {
-        const x = particle.x;
-        const y = particle.y;
+        const x = particle.x * cos - particle.y * sin;
+        const y = particle.x * sin + particle.y * cos;
         const z = particle.z;
         const perspective = 2.8 / (2.8 + z);
         const sx = cx + x * scale * perspective;
@@ -215,17 +245,17 @@ export function CardParticles({ shape }: { shape: CardParticleShape }) {
         if (nudge > 0.2) settling = true;
 
         const depth = Math.max(0, Math.min(1, (z + 1.3) / 2.2));
-        const alpha = Math.min(1, (0.72 + particle.alpha * 0.28) * (0.85 + depth * 0.15));
-        const widthPx = Math.max(5, Math.round(particle.size * 3.8 * (0.92 + depth * 0.2)));
-        const heightPx = Math.max(3, Math.round(widthPx * 0.52));
-        const lift = 0.35 + particle.alpha * 0.65;
-        const green = Math.round(246 + lift * 8);
-        const blue = Math.round(176 + lift * 58);
+        const alpha = Math.min(0.55, (0.16 + particle.alpha * 0.34) * (0.82 + depth * 0.18));
+        const widthPx = Math.max(3, Math.round(particle.size * 2.7 * (0.92 + depth * 0.16)));
+        const heightPx = Math.max(2, Math.round(widthPx * 0.55));
+        const lift = particle.alpha;
+        const green = Math.round(198 + lift * 26);
+        const blue = Math.round(18 + (1 - lift) * 28);
         ctx!.fillStyle = `rgba(255, ${green}, ${blue}, ${alpha})`;
         ctx!.fillRect(Math.round(sx + particle.ox), Math.round(sy + particle.oy), widthPx, heightPx);
       }
 
-      if ((pointer.inside || settling) && visible) frame = requestAnimationFrame(draw);
+      if (visible && (!reduce.matches || pointer.inside || settling)) frame = requestAnimationFrame(draw);
     }
 
     resize();

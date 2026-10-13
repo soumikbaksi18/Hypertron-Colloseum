@@ -419,11 +419,11 @@
 
 .landing-card-particles {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 34px;
+  right: 28px;
   display: block;
-  width: 220px;
-  height: 196px;
+  width: 168px;
+  height: 148px;
   cursor: crosshair;
 }
 
