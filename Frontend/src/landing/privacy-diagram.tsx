@@ -98,7 +98,7 @@ export function PrivacyDiagram() {
     >
       <p
         data-privacy-node
-        className="text-[10px] tracking-[0.24em] text-white/45 uppercase"
+        className="text-[10px] tracking-[0.24em] text-[#EEF4FF]/45 uppercase"
       >
         Public ledger
       </p>
@@ -109,7 +109,7 @@ export function PrivacyDiagram() {
         className="privacy-ledger-field relative mt-4 flex h-20 w-full items-center justify-center"
       >
         <div className="privacy-dot-field absolute inset-0" />
-        <div className="relative z-10 flex size-12 items-center justify-center border border-dashed border-white/30 bg-[#07101f] text-white/60">
+        <div className="relative z-10 flex size-12 items-center justify-center border border-dashed border-[#C3D0E8]/30 bg-[#03080b] text-[#EEF4FF]/60">
           <Shield className="size-5" strokeWidth={1.25} />
         </div>
       </div>
@@ -117,17 +117,17 @@ export function PrivacyDiagram() {
       <div className="privacy-spine h-10 w-px" />
 
       <div data-privacy-node className="w-full max-w-[30rem] text-center">
-        <p className="mb-3 text-[10px] tracking-[0.22em] text-white/45 uppercase">
+        <p className="mb-3 text-[10px] tracking-[0.22em] text-[#EEF4FF]/45 uppercase">
           Settlement
         </p>
-        <div className="border border-dashed border-white/30 bg-white/[0.025] px-6 py-4 backdrop-blur-sm">
+        <div className="border border-dashed border-[#C3D0E8]/30 bg-white/[0.025] px-6 py-4 backdrop-blur-sm">
           <div className="flex items-center justify-center gap-2.5">
             <img
               src="/media/solana.png"
               alt=""
               className="size-5 rounded-full object-cover"
             />
-            <p className="landing-hero-title text-[18px] tracking-[-0.02em] text-white/80">
+            <p className="landing-hero-title text-[18px] tracking-[-0.02em] text-[#EEF4FF]/80">
               Solana
             </p>
           </div>
@@ -143,15 +143,15 @@ export function PrivacyDiagram() {
       >
         <div aria-hidden className="privacy-particles privacy-particles-left" />
         <div aria-hidden className="privacy-particles privacy-particles-right" />
-        <p className="text-[10px] tracking-[0.26em] text-[#9ec5ff] uppercase">
+        <p className="text-[10px] tracking-[0.26em] text-[#c3d0e8] uppercase">
           Hypertron
         </p>
-        <p className="landing-hero-title mt-2 text-[24px] tracking-[-0.035em] text-white">
+        <p className="landing-hero-title mt-2 text-[24px] tracking-[-0.035em] text-[#EEF4FF]">
           Privacy layer
         </p>
         <p
           key={activeRole ?? "default"}
-          className="privacy-copy mt-2 min-h-10 text-[12px] leading-relaxed text-white/50"
+          className="privacy-copy mt-2 min-h-10 text-[12px] leading-relaxed text-[#EEF4FF]/50"
         >
           {activeCopy}
         </p>
@@ -196,19 +196,19 @@ export function PrivacyDiagram() {
               onFocus={() => setActiveRole(index)}
               onClick={() => setActiveRole(active ? null : index)}
               className={`group flex min-w-0 flex-col items-center text-center focus-visible:outline-none ${
-                active ? "text-white" : "text-white/55"
+                active ? "text-[#EEF4FF]" : "text-[#EEF4FF]/55"
               }`}
             >
               <span
                 className={`flex size-12 items-center justify-center border border-dashed transition-all duration-300 sm:size-14 ${
                   active
-                    ? "border-[#9ec5ff] bg-[#9ec5ff]/10 text-[#9ec5ff] shadow-[0_0_24px_rgba(158,197,255,0.18)]"
-                    : "border-white/25 bg-white/[0.025] group-hover:border-white/50 group-hover:text-white"
+                    ? "border-[#c3d0e8] bg-[#c3d0e8]/10 text-[#c3d0e8] shadow-[0_0_24px_rgba(158,197,255,0.18)]"
+                    : "border-[#C3D0E8]/25 bg-white/[0.025] group-hover:border-[#C3D0E8]/50 group-hover:text-[#EEF4FF]"
                 }`}
               >
                 <Icon className="size-5" strokeWidth={1.25} />
               </span>
-              <span className="mt-4 text-[9px] tracking-[0.2em] text-[#9ec5ff]/75">
+              <span className="mt-4 text-[9px] tracking-[0.2em] text-[#c3d0e8]/75">
                 0{index + 1}
               </span>
               <span className="mt-2 text-[10px] tracking-[0.16em] uppercase sm:text-[11px]">

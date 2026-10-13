@@ -1,47 +1,33 @@
 import { startTransition, useCallback, useEffect, useState } from 'react';
-import {
-  Code2,
-  CreditCard,
-  LayoutDashboard,
-  ScanEye,
-  Settings,
-  Wallet,
-} from 'lucide-react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
-import { CollectPaymentsPage } from '../pages/app/CollectPaymentsPage';
-import { DevelopersPage } from '../pages/app/DevelopersPage';
-import { SettingsPage } from '../pages/app/SettingsPage';
-import { WalletPage } from '../pages/app/WalletPage';
+
+import { WorkspacePayments } from './workspace-payments';
+import { WorkspaceTreasury } from './workspace-treasury';
+import { WorkspaceDevelopers } from './workspace-developers';
+import { WorkspaceCompliance } from './workspace-compliance';
+import { WorkspaceSettings } from './workspace-settings';
 import { useWalletSession } from '../context/WalletContext';
 import { setAccountKind } from '../lib/account-kind';
+import { canAccessWorkspaces } from '../lib/workspace-subscription';
 import { getWorkspace, touchWorkspace } from '../lib/workspaces';
-import { AuditorPage } from './auditor-page';
-import { DashboardChrome } from './chrome';
+import { DashboardChrome, type BreadcrumbCrumb } from './chrome';
 import { PrivacyOnboardingGate } from './privacy-onboarding-gate';
+import { APP_NAV } from './setup-nav';
 import { WorkspaceOverview } from './workspace-overview';
 import {
-  WORKSPACE_TABS,
   isWorkspaceTab,
   type WorkspaceTab,
 } from './workspace-types';
 
-const TAB_ICONS = {
-  overview: LayoutDashboard,
-  payments: CreditCard,
-  treasury: Wallet,
-  developers: Code2,
-  auditor: ScanEye,
-  settings: Settings,
-} as const;
-
 const TAB_META: Record<WorkspaceTab, { label: string; searchPlaceholder: string }> = {
-  overview: { label: 'Overview', searchPlaceholder: 'Search workspace...' },
+  overview: { label: 'Overview', searchPlaceholder: 'Search payments, contacts...' },
   payments: { label: 'Payments', searchPlaceholder: 'Search payments' },
   treasury: { label: 'Treasury', searchPlaceholder: 'Search treasury' },
-  developers: { label: 'Developers', searchPlaceholder: 'Search API keys' },
-  auditor: { label: 'Auditor', searchPlaceholder: 'Search auditor' },
-  settings: { label: 'Settings', searchPlaceholder: 'Search settings' },
+  developers: { label: 'Developers', searchPlaceholder: 'Search API keys, webhooks...' },
+  auditor: { label: 'Auditor', searchPlaceholder: 'Search auditor...' },
+  workspaces: { label: 'Workspaces', searchPlaceholder: 'Search workspaces...' },
+  settings: { label: 'Settings', searchPlaceholder: 'Search settings...' },
 };
 
 function readTabFromUrl(): WorkspaceTab {
@@ -53,12 +39,10 @@ export function WorkspaceShell() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const { session } = useWalletSession();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<WorkspaceTab>('overview');
-  const [ready, setReady] = useState(false);
+  const [tab, setTab] = useState<WorkspaceTab>(() => readTabFromUrl());
 
   useEffect(() => {
     setTab(readTabFromUrl());
-    setReady(true);
   }, [workspaceId]);
 
   useEffect(() => {
@@ -76,71 +60,93 @@ export function WorkspaceShell() {
     });
   }, []);
 
+  const selectWorkspaceNav = useCallback(
+    (next: string) => {
+      if (next === 'billing') {
+        navigate('/app?tab=billing');
+        return;
+      }
+      if (next === 'workspaces') {
+        navigate('/app');
+        return;
+      }
+      if (next === 'compliance') {
+        selectTab('auditor');
+        return;
+      }
+      if (isWorkspaceTab(next)) selectTab(next);
+    },
+    [navigate, selectTab],
+  );
+
+  const switchMode = useCallback(
+    (next: 'personal' | 'workspaces') => {
+      if (!session) return;
+      if (next === 'personal') {
+        setAccountKind(session.wallet_address, 'individual');
+        navigate('/app?space=personal');
+        return;
+      }
+      navigate('/app');
+    },
+    [navigate, session],
+  );
+
   if (!session || !workspaceId) return <Navigate to="/app" replace />;
 
   const workspace = getWorkspace(session, workspaceId);
   if (!workspace) return <Navigate to="/app" replace />;
+  if (!canAccessWorkspaces(session)) {
+    return <Navigate to="/app?tab=billing" replace />;
+  }
+  if (tab === 'workspaces') return <Navigate to="/app" replace />;
 
   const meta = TAB_META[tab];
-  const navItems = WORKSPACE_TABS.map((item) => ({
-    ...item,
-    icon: TAB_ICONS[item.id],
-  }));
+  const activeNavId = tab === 'auditor' ? 'compliance' : tab;
+  const appCrumb: BreadcrumbCrumb = { label: 'App', onSelect: () => navigate('/app') };
+  const workspaceCrumb: BreadcrumbCrumb = {
+    label: workspace.name,
+    onSelect: () => selectTab('overview'),
+  };
+  const sectionLabel = tab === 'auditor' ? 'Compliance' : meta.label;
+  const breadcrumb: BreadcrumbCrumb[] =
+    tab === 'overview'
+      ? [appCrumb, { label: workspace.name }]
+      : [appCrumb, workspaceCrumb, { label: sectionLabel }];
 
   return (
     <PrivacyOnboardingGate>
     <DashboardChrome
-      navItems={navItems}
-      activeId={tab}
-      onSelect={selectTab}
-      breadcrumb={`${workspace.name} / ${meta.label}`}
+      navItems={APP_NAV}
+      activeId={activeNavId}
+      onSelect={selectWorkspaceNav}
+      breadcrumb={breadcrumb}
       searchPlaceholder={meta.searchPlaceholder}
       identity={{
         title: session.name.trim() || workspace.name,
         subtitle: session.wallet_address,
       }}
       mode="workspaces"
-      onModeChange={(next) => {
-        if (next === 'personal') {
-          setAccountKind(session.wallet_address, 'individual');
-          navigate('/app');
-          return;
-        }
-        navigate('/app');
-      }}
+      variant="canvas"
+      onModeChange={switchMode}
     >
-      {!ready ? null : (
-        <>
-          {tab === 'overview' ? (
-            <WorkspaceOverview
-              workspace={workspace}
-              onCreatePaymentLink={() => selectTab('payments')}
-              onViewAllPayments={() => selectTab('payments')}
-            />
-          ) : null}
-          {tab === 'payments' ? (
-            <div className="dash-embed">
-              <CollectPaymentsPage />
-            </div>
-          ) : null}
-          {tab === 'treasury' ? (
-            <div className="dash-embed">
-              <WalletPage />
-            </div>
-          ) : null}
-          {tab === 'developers' ? (
-            <div className="dash-embed">
-              <DevelopersPage />
-            </div>
-          ) : null}
-          {tab === 'auditor' ? <AuditorPage /> : null}
-          {tab === 'settings' ? (
-            <div className="dash-embed">
-              <SettingsPage />
-            </div>
-          ) : null}
-        </>
-      )}
+      {tab === 'overview' ? (
+        <WorkspaceOverview
+          workspace={workspace}
+          onCreatePaymentLink={() => selectTab('payments')}
+          onViewAllPayments={() => selectTab('payments')}
+        />
+      ) : tab === 'payments' ? (
+        <WorkspacePayments workspace={workspace} />
+      ) : tab === 'treasury' ? (
+        <WorkspaceTreasury />
+      ) : tab === 'developers' ? (
+        <WorkspaceDevelopers />
+      ) : tab === 'auditor' ? (
+        <WorkspaceCompliance />
+      ) : tab === 'settings' ? (
+        <WorkspaceSettings onOpenCompliance={() => selectTab('auditor')} />
+      ) : null}
     </DashboardChrome>
     </PrivacyOnboardingGate>
   );

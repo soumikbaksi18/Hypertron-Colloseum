@@ -1,5 +1,6 @@
 import { Check, Download, EyeOff, KeyRound, Shield, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { useWalletSession } from '../context/WalletContext';
 import { ApiError } from '../lib/http';
@@ -13,6 +14,7 @@ import {
   saveShieldKeys,
 } from '../lib/shield-keys';
 import { DashboardChrome } from './chrome';
+import { HUB_NAV } from './setup-nav';
 
 const POINTS = [
   {
@@ -34,6 +36,7 @@ const POINTS = [
 
 export function PrivacyOnboarding({ onDone }: { onDone: () => void }) {
   const { session, refresh } = useWalletSession();
+  const navigate = useNavigate();
   const [keysReady, setKeysReady] = useState(() => Boolean(loadShieldKeys()));
   const [backedUp, setBackedUp] = useState(() => Boolean(loadShieldKeys()));
   const [busy, setBusy] = useState(false);
@@ -106,122 +109,123 @@ export function PrivacyOnboarding({ onDone }: { onDone: () => void }) {
 
   return (
     <DashboardChrome
-      navItems={[]}
+      variant="canvas"
+      navItems={HUB_NAV}
       activeId=""
-      onSelect={() => undefined}
-      breadcrumb="Account / Setup"
+      onSelect={(id) => {
+        if (id === 'billing' || id === 'settings') navigate(`/app?tab=${id}`);
+      }}
+      breadcrumb={[
+        { label: 'App', onSelect: () => navigate('/app') },
+        { label: 'Setup' },
+      ]}
       searchPlaceholder="Search"
       identity={{
         title: current.handle ?? 'Hypertron',
         subtitle: current.wallet_address,
       }}
     >
-      <div className="mx-auto max-w-2xl">
-        <p className="text-[11px] font-semibold tracking-[0.16em] text-[#C9A46A] uppercase">
-          Get started
-        </p>
-        <h1 className="mt-2 text-[28px] font-semibold tracking-tight text-slate-950">
+      <div className="flex w-full flex-col pb-6">
+        <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">Get started</p>
+        <h1 className="dash-display mt-3 text-[clamp(2.2rem,4vw,3.2rem)] leading-[0.96] tracking-[-0.035em] text-[#EEF4FF]">
           How private payments work
         </h1>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
-          Read this once. The wallet stays simple after this — deposits still
-          warn you at the moment you add money.
+        <p className="mt-4 max-w-md text-sm leading-relaxed text-[#EEF4FF]/70">
+          Read this once. The wallet stays simple after this. Deposits still warn you when you add money.
         </p>
 
-        <ol className="mt-8 grid gap-3">
-          {POINTS.map((point) => {
+        <div className="mt-8 flex flex-col">
+          {POINTS.map((point, index) => {
             const Icon = point.icon;
             return (
-              <li
+              <section
                 key={point.title}
-                className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-5"
+                className={index === 0 ? 'ov-card' : 'ov-card z-10 -mt-px'}
               >
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#F8F0E2] text-[#C9A46A]">
-                  <Icon className="size-5" strokeWidth={1.8} />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">{point.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">{point.body}</p>
+                <div className="flex gap-4">
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-[#C3D0E8]/35 text-[#c9b56a]">
+                    <Icon className="size-5" strokeWidth={1.8} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-[#EEF4FF]">{point.title}</p>
+                    <p className="mt-1 text-sm leading-6 text-[#C3D0E8]/70">{point.body}</p>
+                  </div>
                 </div>
-              </li>
+              </section>
             );
           })}
-        </ol>
 
-        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
-          <p className="text-sm font-semibold text-slate-900">
-            {keysReady
-              ? 'Keys are ready'
-              : returning
-                ? 'No backup on this computer?'
-                : 'Save a backup'}
-          </p>
-          <p className="mt-1 text-sm leading-6 text-slate-500">
-            {keysReady
-              ? 'You can continue. Download another copy of the backup if you want.'
-              : returning
-                ? 'Import a backup only if you have the file from the browser that created this Hypertron ID. If you do not have that file, create new keys and start a fresh private balance. Old notes stay locked to the lost key.'
-                : 'We will generate spend and viewing keys in this browser and download a JSON backup. Keep that file offline.'}
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void generate()}
-              className="inline-flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-[#121F46] to-[#4A63BE] px-4 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              <Download className="size-4" />
+          <section className="ov-card z-10 -mt-px">
+            <p className="text-[10px] font-semibold tracking-[0.14em] text-[#c9b56a] uppercase">
+              {keysReady ? 'Keys are ready' : returning ? 'No backup on this computer?' : 'Save a backup'}
+            </p>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-[#C3D0E8]/70">
               {keysReady
-                ? 'Download backup again'
-                : busy
-                  ? 'Creating…'
-                  : returning
-                    ? 'Create new keys'
-                    : 'Create keys and download backup'}
-            </button>
+                ? 'You can continue. Download another copy of the backup if you want.'
+                : returning
+                  ? 'Import a backup only if you have the file from the browser that created this Hypertron ID. If you do not have that file, create new keys and start a fresh private balance. Old notes stay locked to the lost key.'
+                  : 'We will generate spend and viewing keys in this browser and download a JSON backup. Keep that file offline.'}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void generate()}
+                className="inline-flex h-11 items-center gap-2 rounded-full bg-[#ffe500] px-5 text-sm font-medium text-[#14110e] transition hover:bg-[#fff36a] disabled:opacity-50"
+              >
+                <Download className="size-4" />
+                {keysReady
+                  ? 'Download backup again'
+                  : busy
+                    ? 'Creating…'
+                    : returning
+                      ? 'Create new keys'
+                      : 'Create keys and download backup'}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => fileRef.current?.click()}
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-[#C3D0E8]/35 px-5 text-sm text-[#C3D0E8] transition hover:border-[#C3D0E8]/70 hover:text-[#EEF4FF] disabled:opacity-50"
+              >
+                <Upload className="size-4" />
+                Import backup
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json,.json"
+                hidden
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = '';
+                  if (file) void importFile(file);
+                }}
+              />
+            </div>
+            {keysReady ? (
+              <p className="mt-3 flex items-center gap-2 text-sm text-emerald-200">
+                <Check className="size-4" strokeWidth={2.4} />
+                Keys are in this browser{backedUp ? ' and a backup was saved.' : '.'}
+              </p>
+            ) : null}
+            {error ? (
+              <p role="alert" className="mt-3 text-sm text-rose-200">
+                {error}
+              </p>
+            ) : null}
+          </section>
+
+          <div className="ov-card z-10 -mt-px flex justify-end">
             <button
               type="button"
-              disabled={busy}
-              onClick={() => fileRef.current?.click()}
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              onClick={finish}
+              disabled={!keysReady || busy}
+              className="inline-flex h-11 items-center rounded-full bg-[#ffe500] px-5 text-sm font-medium text-[#14110e] transition hover:bg-[#fff36a] disabled:opacity-40"
             >
-              <Upload className="size-4" />
-              Import backup
+              Continue
             </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/json,.json"
-              hidden
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = '';
-                if (file) void importFile(file);
-              }}
-            />
           </div>
-          {keysReady ? (
-            <p className="mt-3 flex items-center gap-2 text-sm text-emerald-700">
-              <Check className="size-4" strokeWidth={2.4} />
-              Keys are in this browser{backedUp ? ' and a backup was saved.' : '.'}
-            </p>
-          ) : null}
-          {error ? (
-            <p role="alert" className="mt-3 text-sm text-rose-700">
-              {error}
-            </p>
-          ) : null}
-        </section>
-
-        <div className="mt-8 flex justify-end">
-          <button
-            type="button"
-            onClick={finish}
-            disabled={!keysReady || busy}
-            className="inline-flex h-11 items-center rounded-xl bg-gradient-to-r from-[#121F46] to-[#4A63BE] px-5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(18,31,70,0.22)] disabled:opacity-40"
-          >
-            Continue to wallet
-          </button>
         </div>
       </div>
     </DashboardChrome>

@@ -34,8 +34,8 @@ export const WAYS = [
   },
   {
     title: "Use the privacy infrastructure",
-    headline: "Call the shielded pool from your own Solana app.",
-    copy: "The pool is shared infrastructure. Your app deposits, transfers, and unshields against the same Merkle tree Hypertron merchants use — no dashboard, no new anonymity set.",
+    headline: "Call the shielded pool from your app.",
+    copy: "Deposit, transfer, and unshield on the same shared pool merchants already use.",
     audience: "For protocol and infrastructure developers",
     tags: ["Shared pool", "App integration", "Shared anonymity set", "Open prover"],
     href: "#ecosystem",
@@ -55,11 +55,11 @@ export const WAYS = [
 export const JOURNEY = [
   {
     label: "Create",
-    copy: "The merchant generates a private payment request — amount, memo, and destination stay off the public ledger until settlement.",
+    copy: "The merchant generates a private payment request. Amount, memo, and destination stay off the public ledger until settlement.",
   },
   {
     label: "Pay",
-    copy: "The customer pays through Hypertron checkout — hosted or via payment link — without leaving a public trail of amount or counterparty.",
+    copy: "The customer pays through Hypertron checkout, hosted or via payment link, without leaving a public trail of amount or counterparty.",
   },
   {
     label: "Shield",

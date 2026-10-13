@@ -124,82 +124,113 @@ export function CheckoutPage() {
 
   if (error && !link) {
     return (
-      <div className="checkout">
-        <p className="gate-error">{error}</p>
-        <Link to="/">Back to Hypertron</Link>
+      <div className="pay pay-empty">
+        <p className="pay-error" role="alert">{error}</p>
+        <Link to="/" className="pay-back">Back to Hypertron</Link>
       </div>
     );
   }
 
   if (!link) {
-    return <div className="boot" />;
+    return (
+      <div className="pay pay-empty">
+        <p className="pay-kicker">Invoice</p>
+        <p className="pay-muted">Loading…</p>
+      </div>
+    );
   }
 
   const paid = link.status === 'paid';
   const pool = link.rail === 'pool';
   const funded = BigInt(balance) >= BigInt(link.amount);
+  const purpose = link.purpose ?? 'Private invoice';
+  const payLabel = busy || signingIn
+    ? busyLabel
+    : !session
+      ? 'Sign in with Phantom'
+      : funded
+        ? `Pay ${money(link.amount, link.currency)}`
+        : 'Add money and pay';
 
   return (
-    <div className="checkout">
-      <div className="checkout-brand">
-        <Link to="/" className="landing-brand">
-          <img src="/media/logo_white.png" alt="" width={28} height={28} />
-          <span>Hypertron</span>
-        </Link>
-        <p className="landing-eyebrow">Paying</p>
-        <h1>{link.business_name}</h1>
-        <p>{link.purpose ?? 'Private invoice'}</p>
-        <p className="checkout-amount">{money(link.amount, link.currency)}</p>
-        {link.client_name && <p>For {link.client_name}</p>}
-        {link.recipient_handle && (
-          <p className="mono" style={{ color: 'var(--ink-faint)' }}>
-            To {link.recipient_handle}
-          </p>
-        )}
-      </div>
-
-      <div className="checkout-main panel">
-        <div className="panel-head">
-          <p className="eyebrow">
-            {paid ? 'Paid' : pool ? 'Pay privately' : 'Pay with Phantom'}
-          </p>
+    <div className="pay">
+      <section className="pay-invoice">
+        <img src="/media/image2.png" alt="" className="pay-hero" />
+        <div className="pay-scrim" aria-hidden />
+        <div className="pay-invoice-body">
+          <Link to="/" className="pay-brand">
+            <img src="/media/logo_white.png" alt="" width={28} height={28} />
+            <span>Hypertron</span>
+          </Link>
+          <p className="pay-kicker">Invoice</p>
+          <h1>{link.business_name}</h1>
+          <ul className="pay-lines">
+            <li>
+              <span>
+                {purpose}
+                {link.client_name ? <small>For {link.client_name}</small> : null}
+              </span>
+              <span>{money(link.amount, link.currency)}</span>
+            </li>
+          </ul>
+          <div className="pay-total">
+            <span>Total due</span>
+            <strong>{money(link.amount, link.currency)}</strong>
+          </div>
+          {link.recipient_handle ? (
+            <p className="pay-to">Pays {link.recipient_handle}</p>
+          ) : null}
         </div>
-        <div className="panel-body" style={{ display: 'grid', gap: '0.9rem' }}>
-          <p style={{ margin: 0, color: 'var(--ink-dim)' }}>
+      </section>
+
+      <section className="pay-side">
+        <div className="pay-card">
+          <p className="pay-kicker">{paid ? 'Paid' : pool ? 'Pay privately' : 'Pay with Phantom'}</p>
+          <h2>
             {paid
-              ? 'This invoice is settled. You can close this page.'
+              ? 'This invoice is settled.'
+              : pool
+                ? 'The amount stays in the pool.'
+                : 'Confirm this invoice in Phantom.'}
+          </h2>
+          <p className="pay-copy">
+            {paid
+              ? 'You can close this page. The receipt is below.'
               : pool
                 ? session
                   ? funded
-                    ? 'Pay from your private USDC. The amount stays in the pool.'
-                    : 'Add money from Phantom, then pay. Adding money is public; the payment is not.'
-                  : 'Sign in with Phantom to pay from your Hypertron wallet.'
-                : 'Sign with Phantom to confirm this invoice.'}
+                    ? 'This pays from your private USDC. The chain does not publish the amount or who you paid.'
+                    : 'Phantom will add the shortfall first. That deposit is public. The payment after it is not.'
+                  : 'Sign in with Phantom. Payment uses your Hypertron wallet on this browser.'
+                : 'Phantom will ask you to sign. The invoice amount is public on this path.'}
           </p>
-          {pool && session && !paid && (
-            <p className="mono" style={{ margin: 0, fontSize: '0.95rem', color: 'var(--ink-faint)' }}>
-              Private balance {money(balance, 'USDC')}
-            </p>
-          )}
-          {pool && session && !paid && !funded && preflight && !preflight.ok && !checking ? (
-            <p className="gate-error" role="alert">
-              {preflight.error}
-            </p>
+
+          {pool && session && !paid ? (
+            <div className="pay-balance">
+              <span>Private balance</span>
+              <strong>{money(balance, 'USDC')}</strong>
+            </div>
           ) : null}
-          {link.memo && <p style={{ margin: 0 }}>Memo: {link.memo}</p>}
-          {error && <p className="gate-error">{error}</p>}
+
+          {link.memo ? <p className="pay-copy">Memo: {link.memo}</p> : null}
+
+          {pool && session && !paid && !funded && preflight && !preflight.ok && !checking ? (
+            <p className="pay-error" role="alert">{preflight.error}</p>
+          ) : null}
+          {error ? <p className="pay-error" role="alert">{error}</p> : null}
+
           {paid ? (
-            <>
-              <p style={{ margin: 0, color: 'var(--mint)' }}>Receipt recorded.</p>
+            <div className="pay-receipt">
+              <p>Receipt recorded.</p>
               <ExplorerTxLink
                 signature={link.payment_tx_hash ?? link.tx_signature}
                 cluster={link.cluster}
               />
-            </>
+            </div>
           ) : (
             <button
               type="button"
-              className="gate-submit"
+              className="pay-submit"
               disabled={
                 busy ||
                 signingIn ||
@@ -212,17 +243,11 @@ export function CheckoutPage() {
               }
               onClick={() => void pay()}
             >
-              {busy || signingIn
-                ? busyLabel
-                : !session
-                  ? 'Sign in to pay'
-                  : funded
-                    ? 'Pay'
-                    : 'Add money and pay'}
+              {payLabel}
             </button>
           )}
         </div>
-      </div>
+      </section>
     </div>
   );
 }

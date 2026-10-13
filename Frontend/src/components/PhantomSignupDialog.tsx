@@ -201,7 +201,7 @@ export function PhantomSignupDialog({
 
                   <p className="flex items-center gap-2.5 border-t border-white/10 pt-5 text-[12px] leading-relaxed text-white/35">
                     <ShieldCheck className="size-4 shrink-0 text-blue/70" />
-                    Signature only — Hypertron never sees your secret key.
+                    Signature only. Hypertron never sees your secret key.
                   </p>
                 </div>
               ) : (

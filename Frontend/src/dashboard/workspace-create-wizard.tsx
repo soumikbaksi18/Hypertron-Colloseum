@@ -5,7 +5,6 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  CircleHelp,
   Globe2,
   ImageUp,
   Plus,
@@ -13,7 +12,6 @@ import {
   Trash2,
   UserRound,
   Users,
-  X,
 } from 'lucide-react';
 import {
   useEffect,
@@ -29,11 +27,14 @@ import { useNavigate } from 'react-router-dom';
 
 import { useWalletSession } from '../context/WalletContext';
 import { setAccountKind } from '../lib/account-kind';
+import { subscribeToWorkspace } from '../lib/workspace-subscription';
 import { sessionApi } from '../lib/session';
 import { saveWorkspace } from '../lib/workspaces';
+import { AccountKindSetup } from './account-kind-setup';
+import { DashboardChrome } from './chrome';
 import { cn } from './cn';
-import { HypertronLogoMark } from './logo-mark';
 import { PrivacyOnboardingGate } from './privacy-onboarding-gate';
+import { HUB_NAV } from './setup-nav';
 import {
   ACCOUNT_KINDS,
   BUSINESS_STEPS,
@@ -50,9 +51,8 @@ import {
 const DRAFT_KEY = 'hypertron:create-workspace:draft:v6';
 const MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024;
 const MAX_LOGO_DATA_URL_LENGTH = 600_000;
-const BRAND_BUTTON_GRADIENT = 'linear-gradient(90deg, #121F46 0%, #4A63BE 100%)';
 const INVITE_INPUT_CLASS =
-  'h-12 w-full rounded-lg border border-[#dfe3ef] bg-white/65 px-4 text-sm text-[#151a2b] outline-none transition placeholder:text-[#8791aa] focus:border-[#E7B66D] focus:bg-white focus:ring-4 focus:ring-[#E7B66D]/15';
+  'h-12 w-full rounded-lg border border-[#C3D0E8]/35 bg-transparent px-4 text-sm text-[#EEF4FF] outline-none transition placeholder:text-[#C3D0E8]/35 focus:border-[#C3D0E8]/70';
 
 function stepsFor(draft: WorkspaceDraft): readonly string[] {
   if (draft.accountKind === 'individual') return INDIVIDUAL_STEPS;
@@ -72,7 +72,6 @@ export function WorkspaceCreateWizard() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const steps = stepsFor(draft);
-  const progress = Math.round((draft.currentStep / Math.max(steps.length, 1)) * 100);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -154,6 +153,7 @@ export function WorkspaceCreateWizard() {
       const accountKind =
         draft.accountKind === 'individual' ? 'individual' : 'business';
       setAccountKind(session.wallet_address, accountKind);
+      if (accountKind === 'business') subscribeToWorkspace(session.wallet_address);
       const created = saveWorkspace(session, {
         accountKind,
         name: draft.name.trim(),
@@ -168,7 +168,7 @@ export function WorkspaceCreateWizard() {
       await refresh().catch(() => undefined);
       sessionStorage.removeItem(DRAFT_KEY);
       navigate(
-        accountKind === 'individual' ? '/app' : `/app/w/${created.id}`,
+        accountKind === 'individual' ? '/app?space=personal' : `/app/w/${created.id}`,
         { replace: true },
       );
     } catch (err) {
@@ -180,99 +180,111 @@ export function WorkspaceCreateWizard() {
   const onPrimary =
     draft.currentStep === lastStep(draft) ? () => void submit() : goNext;
 
+  const identityTitle =
+    (session?.name ?? '').trim() ||
+    session?.handle?.trim() ||
+    'Personal';
+
+  if (hydrated && draft.currentStep === 1 && session) {
+    return (
+      <PrivacyOnboardingGate>
+        <DashboardChrome
+          variant="canvas"
+          navItems={HUB_NAV}
+          activeId=""
+          onSelect={(id) => {
+            if (id === 'billing' || id === 'settings') navigate(`/app?tab=${id}`);
+          }}
+          breadcrumb={[
+            { label: 'App', onSelect: () => navigate('/app') },
+            { label: 'Setup' },
+          ]}
+          searchPlaceholder="Search setup..."
+          identity={{
+            title: identityTitle,
+            subtitle: session.handle ?? session.wallet_address,
+          }}
+        >
+          {error ? (
+            <p
+              role="alert"
+              className="mb-4 rounded-xl border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
+            >
+              {error}
+            </p>
+          ) : null}
+          <AccountKindSetup
+            selected={
+              draft.accountKind === 'individual' || draft.accountKind === 'business'
+                ? draft.accountKind
+                : null
+            }
+            onSelect={(kind) => update({ accountKind: kind, currentStep: 1 })}
+            onContinue={goNext}
+            continueDisabled={
+              draft.accountKind !== 'individual' && draft.accountKind !== 'business'
+            }
+            continueLabel="Continue"
+          />
+        </DashboardChrome>
+      </PrivacyOnboardingGate>
+    );
+  }
+
   return (
     <PrivacyOnboardingGate>
-    <div className="dash-root relative min-h-svh overflow-hidden bg-[#0F1939] text-slate-950">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-24 left-[8%] size-[28rem] rounded-full bg-[#E7B66D]/12 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute right-[8%] bottom-[-8rem] size-[32rem] rounded-full bg-[#4A63BE]/18 blur-3xl"
-      />
-
-      <div className="relative z-10 flex min-h-svh gap-3 p-3 md:gap-4 md:p-4">
-        <div className="hidden w-[220px] shrink-0 flex-col py-2 pb-10 pl-1 text-white lg:flex">
-          <button
-            type="button"
-            onClick={() => navigate('/app')}
-            className="flex items-center gap-2.5 self-start px-3 pt-2"
-            aria-label="Return to dashboard"
-          >
-            <HypertronLogoMark size={32} />
-            <span className="font-display text-[15px] font-semibold tracking-tight text-white">
-              Hypertron
-            </span>
-          </button>
-          <ProgressRail
-            steps={steps}
-            currentStep={draft.currentStep}
-            onSelect={goTo}
-          />
-        </div>
-
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="mb-3 flex items-center justify-between px-1 lg:hidden">
-            <button
-              type="button"
-              onClick={() => navigate('/app')}
-              className="flex items-center gap-2.5"
-            >
-              <HypertronLogoMark size={28} />
-              <span className="font-display text-sm font-semibold text-white">
-                Hypertron
-              </span>
-            </button>
-            <span className="text-[10px] font-semibold tracking-[0.16em] text-[#E7B66D] uppercase">
+      <DashboardChrome
+        variant="canvas"
+        navItems={HUB_NAV}
+        activeId=""
+        onSelect={(id) => {
+          if (id === 'billing' || id === 'settings') navigate(`/app?tab=${id}`);
+        }}
+        breadcrumb={[
+          { label: 'App', onSelect: () => navigate('/app') },
+          { label: 'Setup' },
+        ]}
+        searchPlaceholder="Search setup..."
+        identity={{
+          title: identityTitle,
+          subtitle: session?.handle ?? session?.wallet_address ?? '',
+        }}
+      >
+        <div className="flex w-full flex-col pb-6">
+          <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">
+            {steps[draft.currentStep - 1] ?? 'Setup'}
+          </p>
+          <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+            <h1 className="dash-display text-[clamp(2.2rem,4vw,3.2rem)] leading-[0.96] tracking-[-0.035em] text-[#EEF4FF]">
+              Let’s get you set up.
+            </h1>
+            <p className="text-sm text-[#C3D0E8]/70">
               Step {draft.currentStep} of {steps.length}
-            </span>
+            </p>
           </div>
 
-          <section className="dash-surface flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] bg-white text-slate-950 shadow-[0_30px_80px_rgba(0,0,0,0.35)]">
-            <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-7 lg:px-9">
-              <p className="text-[11px] font-semibold tracking-[0.14em] text-[#E7B66D] uppercase">
-                {steps[draft.currentStep - 1] ?? 'Account type'}{' '}
-                <span className="font-medium tracking-normal text-slate-400">
-                  Step {draft.currentStep} of {steps.length}
-                </span>
-              </p>
-              <div className="flex h-[38px] w-[456px] max-w-[55%] items-center justify-end gap-8">
-                <SetupProgress value={progress} />
-                <button
-                  type="button"
-                  onClick={() => navigate('/app')}
-                  aria-label="Close workspace setup"
-                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-black shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition hover:bg-slate-50"
-                >
-                  <X className="size-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-7 lg:px-9 lg:py-8">
+          <div className="mt-8 flex flex-col lg:flex-row">
+            <ProgressRail steps={steps} currentStep={draft.currentStep} onSelect={goTo} />
+            <div className="ov-card z-10 -mt-px flex min-w-0 flex-[1.4] flex-col lg:mt-0 lg:-ml-px">
               <StepContent draft={draft} setDraft={setDraft} onEdit={goTo} />
-            </div>
-
-            <div className="border-t border-slate-100 bg-white px-5 py-4 sm:px-7 lg:px-9">
               {error ? (
                 <p
                   role="alert"
-                  className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                  className="mt-4 rounded-xl border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
                 >
                   {error}
                 </p>
               ) : null}
-              <div className="flex items-center justify-between gap-3">
-                <p className="hidden items-center gap-2 text-xs text-slate-500 sm:flex">
-                  <ShieldCheck className="size-4 text-[#E7B66D]" />
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[#C3D0E8]/25 pt-5">
+                <p className="hidden items-center gap-2 text-xs text-[#C3D0E8]/55 sm:flex">
+                  <ShieldCheck className="size-4 text-[#c9b56a]" />
                   You can update these choices later in workspace settings.
                 </p>
                 <div className="ml-auto flex items-center gap-2">
                   <button
                     type="button"
                     onClick={goBack}
-                    className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                    className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#C3D0E8]/35 px-4 text-sm text-[#C3D0E8] transition hover:border-[#C3D0E8]/70 hover:text-[#EEF4FF]"
                   >
                     <ArrowLeft className="size-4" />
                     {draft.currentStep === 1 ? 'Cancel' : 'Back'}
@@ -281,52 +293,22 @@ export function WorkspaceCreateWizard() {
                     type="button"
                     onClick={onPrimary}
                     disabled={submitting}
-                    className="inline-flex h-10 items-center gap-1.5 rounded-lg px-5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(18,31,70,0.28)] transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
-                    style={{ backgroundImage: BRAND_BUTTON_GRADIENT }}
+                    className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#ffe500] px-5 text-sm font-medium text-[#14110e] transition hover:bg-[#fff36a] disabled:cursor-wait disabled:opacity-60"
                   >
                     {draft.currentStep === lastStep(draft)
                       ? submitting
                         ? 'Creating…'
-                        : 'Create Workspace'
+                        : 'Create workspace'
                       : 'Continue'}
                     {!submitting ? <ArrowRight className="size-4" /> : null}
                   </button>
                 </div>
               </div>
             </div>
-          </section>
+          </div>
         </div>
-      </div>
-    </div>
+      </DashboardChrome>
     </PrivacyOnboardingGate>
-  );
-}
-
-function SetupProgress({ value }: { value: number }) {
-  const clamped = Math.min(100, Math.max(0, value));
-  return (
-    <div
-      className="relative hidden h-2 min-w-0 flex-1 sm:block"
-      role="progressbar"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={clamped}
-      aria-label="Setup progress"
-    >
-      <div className="absolute inset-0 rounded-full bg-[#E3DED6]" />
-      <div
-        className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-300"
-        style={{
-          width: `${clamped}%`,
-          backgroundImage:
-            'linear-gradient(90deg, #0F1939 0%, #4A63BE 52%, #F3CB88 100%)',
-        }}
-      />
-      <span
-        className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#F3CB88] shadow-[0_0_0_3px_#fff,0_0_10px_rgba(243,203,136,0.45)] transition-[left] duration-300"
-        style={{ left: `${clamped}%` }}
-      />
-    </div>
   );
 }
 
@@ -340,18 +322,13 @@ function ProgressRail({
   onSelect: (step: WizardStep) => void;
 }) {
   return (
-    <aside className="relative mt-5 flex min-h-0 flex-1 flex-col px-2 text-white">
-      <div className="px-1">
-        <p className="text-[10px] font-semibold tracking-[0.18em] text-[#E7B66D] uppercase">
-          New Workspace
-        </p>
-        <h1 className="mt-2 text-lg font-semibold leading-6 tracking-tight">
-          Let’s get you set up.
-        </h1>
-        <p className="mt-1.5 text-[11px] leading-4 text-white/50">
-          Step {currentStep} of {steps.length}. Every choice can be changed later.
-        </p>
-      </div>
+    <aside className="ov-card flex min-w-0 flex-col lg:w-[240px] lg:shrink-0">
+      <p className="text-[10px] font-semibold tracking-[0.18em] text-[#c9b56a] uppercase">
+        New workspace
+      </p>
+      <p className="mt-2 text-sm leading-5 text-[#C3D0E8]/70">
+        Step {currentStep} of {steps.length}. Every choice can be changed later.
+      </p>
 
       <ol className="relative mt-5">
         {steps.map((label, index) => {
@@ -368,7 +345,7 @@ function ProgressRail({
                   aria-hidden
                   className={cn(
                     'absolute top-[calc(50%+1rem)] left-4 h-[38px] w-0.5 -translate-x-1/2',
-                    complete ? 'bg-[#E7B66D]' : 'bg-white/20',
+                    complete ? 'bg-[#c9b56a]' : 'bg-[#C3D0E8]/25',
                   )}
                 />
               ) : null}
@@ -376,10 +353,10 @@ function ProgressRail({
                 className={cn(
                   'relative z-10 flex size-8 items-center justify-center rounded-full text-[10px] font-semibold tracking-wide',
                   active
-                    ? 'bg-[#E7B66D] text-[#0F1939]'
+                    ? 'bg-[#ffe500] text-[#14110e]'
                     : complete
-                      ? 'border-2 border-[#E7B66D] bg-[#E7B66D]/12 text-[#E7B66D]'
-                      : 'border-2 border-white/20 bg-transparent text-white/40',
+                      ? 'border border-[#c9b56a] bg-[#c9b56a]/12 text-[#c9b56a]'
+                      : 'border border-[#C3D0E8]/35 bg-transparent text-[#C3D0E8]/45',
                 )}
               >
                 {complete ? <Check className="size-3.5" /> : String(step).padStart(2, '0')}
@@ -389,14 +366,14 @@ function ProgressRail({
                 onClick={() => complete && onSelect(step)}
                 disabled={!complete}
                 className={cn(
-                  'min-w-0 rounded-xl px-2.5 py-1 text-left transition disabled:cursor-default',
-                  active ? 'bg-white/6 ring-1 ring-white/10' : '',
+                  'min-w-0 rounded-md px-2.5 py-1 text-left transition disabled:cursor-default',
+                  active ? 'bg-transparent/[0.04]' : '',
                 )}
               >
                 <span
                   className={cn(
                     'block text-sm font-medium',
-                    active ? 'text-[#E7B66D]' : complete ? 'text-white/80' : 'text-white/40',
+                    active ? 'text-[#c9b56a]' : complete ? 'text-[#EEF4FF]' : 'text-[#C3D0E8]/45',
                   )}
                 >
                   {label}
@@ -407,15 +384,6 @@ function ProgressRail({
         })}
       </ol>
 
-      <div className="mt-auto space-y-3">
-        <div className="flex h-10 items-center gap-2.5 rounded-xl px-3 text-sm font-medium text-white">
-          <CircleHelp className="size-4 text-[#E7B66D]" strokeWidth={1.85} />
-          Need help?
-        </div>
-        <p className="px-3 text-[11px] leading-4 text-white/45">
-          Tell us if this is a business or a personal account first.
-        </p>
-      </div>
     </aside>
   );
 }
@@ -458,22 +426,22 @@ function StepContent({
                 className={cn(
                   'relative min-h-40 overflow-hidden rounded-2xl border p-5 text-left transition',
                   active
-                    ? 'border-[#E7B66D] bg-white ring-1 ring-[#E7B66D]/30'
-                    : 'border-slate-200 bg-white hover:border-slate-300',
+                    ? 'border-[#c9b56a] bg-transparent ring-1 ring-[#c9b56a]/40'
+                    : 'border-[#C3D0E8]/35 bg-transparent hover:border-[#C3D0E8]/45',
                 )}
               >
                 {active ? (
-                  <span className="absolute top-3 right-3 flex size-5 items-center justify-center rounded-full bg-[#E7B66D] text-[#0F1939]">
+                  <span className="absolute top-3 right-3 flex size-5 items-center justify-center rounded-full bg-[#ffe500] text-[#14110e]">
                     <Check className="size-3" strokeWidth={2.4} />
                   </span>
                 ) : null}
                 <span className={cn('flex size-11 items-center justify-center rounded-xl', option.tone)}>
                   <Icon className="size-5" strokeWidth={1.8} />
                 </span>
-                <span className="mt-5 block text-lg font-semibold text-slate-900">
+                <span className="mt-5 block text-lg font-semibold text-[#EEF4FF]">
                   {option.title}
                 </span>
-                <span className="mt-1 block text-sm leading-5 text-slate-500">
+                <span className="mt-1 block text-sm leading-5 text-[#C3D0E8]/55">
                   {option.description}
                 </span>
               </button>
@@ -492,7 +460,7 @@ function StepContent({
         description="Use your name or a personal handle. You can change it later."
       >
         <label className="block max-w-xl">
-          <span className="text-sm font-semibold text-slate-900">Display name</span>
+          <span className="text-sm font-semibold text-[#EEF4FF]">Display name</span>
           <span className="relative mt-3 block">
             <input
               autoFocus
@@ -501,7 +469,7 @@ function StepContent({
               onChange={(event) => update({ name: event.target.value })}
               placeholder="e.g. Alex"
               maxLength={80}
-              className="h-14 w-full rounded-xl border border-slate-200 bg-white px-4 pr-12 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="h-14 w-full rounded-xl border border-[#C3D0E8]/35 bg-transparent px-4 pr-12 text-sm text-[#EEF4FF] outline-none transition focus:border-[#C3D0E8]"
             />
             {draft.name.trim() ? (
               <CheckCircle2 className="absolute top-1/2 right-4 size-5 -translate-y-1/2 text-emerald-500" />
@@ -602,8 +570,8 @@ function WorkspaceDetailsStep({
     <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-7">
         <label className="block">
-          <span className="text-sm font-semibold text-slate-900">Business Name</span>
-          <span className="mt-1 block text-xs text-slate-500">
+          <span className="text-sm font-semibold text-[#EEF4FF]">Business Name</span>
+          <span className="mt-1 block text-xs text-[#C3D0E8]/55">
             This is how your workspace will appear inside Hypertron.
           </span>
           <span className="relative mt-3 block">
@@ -614,7 +582,7 @@ function WorkspaceDetailsStep({
               onChange={(event) => onUpdate({ name: event.target.value })}
               placeholder="e.g. Hypertron Labs"
               maxLength={80}
-              className="h-14 w-full rounded-xl border border-slate-200 bg-white px-4 pr-12 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="h-14 w-full rounded-xl border border-[#C3D0E8]/35 bg-transparent px-4 pr-12 text-sm text-[#EEF4FF] outline-none transition focus:border-[#C3D0E8]"
             />
             {draft.name.trim() ? (
               <CheckCircle2 className="absolute top-1/2 right-4 size-5 -translate-y-1/2 text-emerald-500" />
@@ -623,25 +591,25 @@ function WorkspaceDetailsStep({
         </label>
 
         <label className="block">
-          <span className="text-sm font-semibold text-slate-900">Website Link</span>
-          <span className="mt-1 block text-xs text-slate-500">
+          <span className="text-sm font-semibold text-[#EEF4FF]">Website Link</span>
+          <span className="mt-1 block text-xs text-[#C3D0E8]/55">
             Optional. Add the website your team uses for this workspace.
           </span>
           <span className="relative mt-3 block">
-            <Globe2 className="absolute top-1/2 left-4 size-4 -translate-y-1/2 text-slate-400" />
+            <Globe2 className="absolute top-1/2 left-4 size-4 -translate-y-1/2 text-[#C3D0E8]/45" />
             <input
               type="url"
               value={draft.website}
               onChange={(event) => onUpdate({ website: event.target.value })}
               placeholder="https://yourcompany.xyz"
-              className="h-14 w-full rounded-xl border border-slate-200 bg-white pr-4 pl-11 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="h-14 w-full rounded-xl border border-[#C3D0E8]/35 bg-transparent pr-4 pl-11 text-sm text-[#EEF4FF] outline-none transition focus:border-[#C3D0E8]"
             />
           </span>
         </label>
 
         <fieldset>
-          <legend className="text-sm font-semibold text-slate-900">Team Size</legend>
-          <p className="mt-1 text-xs text-slate-500">Helps us tailor your experience.</p>
+          <legend className="text-sm font-semibold text-[#EEF4FF]">Team Size</legend>
+          <p className="mt-1 text-xs text-[#C3D0E8]/55">Helps us tailor your experience.</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {['1-5', '5-20', '20-50', '50+'].map((size) => {
               const selected = draft.teamSize === size;
@@ -654,8 +622,8 @@ function WorkspaceDetailsStep({
                   className={cn(
                     'flex h-14 items-center justify-center gap-2 rounded-xl border text-sm font-medium transition',
                     selected
-                      ? 'border-[#E7B66D] bg-[#F8F0E2] text-[#0F1939] ring-1 ring-[#E7B66D]/25'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-[#E7B66D]/50',
+                      ? 'border-[#c9b56a] bg-[#c9b56a]/12 text-[#EEF4FF] ring-1 ring-[#c9b56a]/40'
+                      : 'border-[#C3D0E8]/35 bg-transparent text-[#C3D0E8]/70 hover:border-[#C3D0E8]/45',
                   )}
                 >
                   <Users className="size-4" />
@@ -668,10 +636,10 @@ function WorkspaceDetailsStep({
       </div>
 
       <div>
-        <h3 className="text-sm font-semibold text-slate-900">
-          Logo <span className="font-normal text-slate-500">(Optional)</span>
+        <h3 className="text-sm font-semibold text-[#EEF4FF]">
+          Logo <span className="font-normal text-[#C3D0E8]/55">(Optional)</span>
         </h3>
-        <p className="mt-1 text-xs text-slate-500">Upload your logo to personalize your workspace.</p>
+        <p className="mt-1 text-xs text-[#C3D0E8]/55">Upload your logo to personalize your workspace.</p>
         <input
           ref={fileInputRef}
           type="file"
@@ -690,29 +658,29 @@ function WorkspaceDetailsStep({
             event.preventDefault();
             handleLogoFile(event.dataTransfer.files?.[0]);
           }}
-          className="mt-3 flex min-h-[280px] w-full flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-gradient-to-br from-white to-blue-50/60 px-6 text-center transition hover:border-blue-400 hover:bg-white"
+          className="mt-3 flex min-h-[280px] w-full flex-col items-center justify-center rounded-2xl border border-dashed border-[#C3D0E8]/45 bg-transparent px-6 text-center transition hover:border-[#C3D0E8]/70"
         >
           {draft.logoDataUrl ? (
             <>
-              <span className="flex size-28 items-center justify-center overflow-hidden rounded-2xl border border-blue-100 bg-white p-3">
+              <span className="flex size-28 items-center justify-center overflow-hidden rounded-2xl border border-[#C3D0E8]/35 bg-transparent p-3">
                 <img
                   src={draft.logoDataUrl}
                   alt={`${draft.name || 'Workspace'} logo preview`}
                   className="max-h-full max-w-full object-contain"
                 />
               </span>
-              <span className="mt-4 max-w-full truncate text-sm font-semibold text-slate-900">
+              <span className="mt-4 max-w-full truncate text-sm font-semibold text-[#EEF4FF]">
                 {draft.logoName || 'Uploaded logo'}
               </span>
             </>
           ) : (
             <>
-              <span className="flex size-20 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50">
-                <ImageUp className="size-8 text-blue-500" strokeWidth={1.7} />
+              <span className="flex size-20 items-center justify-center rounded-2xl border border-[#C3D0E8]/35">
+                <ImageUp className="size-8 text-[#c9b56a]" strokeWidth={1.7} />
               </span>
-              <span className="mt-5 text-sm font-semibold text-slate-900">Upload Logo</span>
-              <span className="mt-2 text-xs text-slate-500">Drag & drop or click to upload</span>
-              <span className="mt-5 text-xs text-slate-500">JPG, PNG or SVG. Max 2 MB</span>
+              <span className="mt-5 text-sm font-semibold text-[#EEF4FF]">Upload Logo</span>
+              <span className="mt-2 text-xs text-[#C3D0E8]/55">Drag & drop or click to upload</span>
+              <span className="mt-5 text-xs text-[#C3D0E8]/55">JPG, PNG or SVG. Max 2 MB</span>
             </>
           )}
         </button>
@@ -735,13 +703,13 @@ function StepFrame({
 }) {
   return (
     <div>
-      <p className="text-[10px] font-semibold tracking-[0.08em] text-[#E7B66D] uppercase">
+      <p className="text-[10px] font-semibold tracking-[0.14em] text-[#c9b56a] uppercase">
         {eyebrow}
       </p>
-      <h2 className="mt-5 text-2xl font-semibold tracking-tight text-slate-950 sm:text-[28px]">
+      <h2 className="dash-display mt-3 text-[clamp(1.6rem,2vw,2rem)] leading-[1.05] text-[#EEF4FF]">
         {title}
       </h2>
-      <p className="mt-1.5 text-sm text-slate-500">{description}</p>
+      <p className="mt-2 max-w-md text-sm leading-relaxed text-[#EEF4FF]/70">{description}</p>
       <div className="mt-7">{children}</div>
     </div>
   );
@@ -769,19 +737,19 @@ function OptionGrid({
             onClick={() => onToggle(option.id)}
             className={cn(
               'relative min-h-32 overflow-hidden rounded-xl border p-4 text-left transition',
-              active ? 'border-[#E7B66D] bg-white' : 'border-slate-200 bg-white hover:border-slate-300',
+              active ? 'border-[#c9b56a] bg-transparent' : 'border-[#C3D0E8]/35 bg-transparent hover:border-[#C3D0E8]/45',
             )}
           >
             {active ? (
-              <span className="absolute top-2.5 right-2.5 flex size-5 items-center justify-center rounded-full bg-[#E7B66D] text-[#0F1939]">
+              <span className="absolute top-2.5 right-2.5 flex size-5 items-center justify-center rounded-full bg-[#ffe500] text-[#14110e]">
                 <Check className="size-3" strokeWidth={2.4} />
               </span>
             ) : null}
             <span className={`flex size-9 items-center justify-center rounded-lg ${option.tone}`}>
               <Icon className="size-4" strokeWidth={1.8} />
             </span>
-            <span className="mt-4 block text-sm font-semibold text-slate-900">{option.title}</span>
-            <span className="mt-1 block text-[11px] leading-4 text-slate-500">
+            <span className="mt-4 block text-sm font-semibold text-[#EEF4FF]">{option.title}</span>
+            <span className="mt-1 block text-[11px] leading-4 text-[#C3D0E8]/55">
               {option.description}
             </span>
           </button>
@@ -827,11 +795,11 @@ function InviteEditor({
   const selectedRoles = new Set(rows.map((member) => member.role).filter(Boolean));
 
   return (
-    <div className="border-t border-[#e7e9f1] pt-7">
-      <h3 className="text-sm font-semibold text-[#151a2b]">Invite Members</h3>
-      <p className="mt-1 text-xs text-[#526080]">You can add teammates now or do it later.</p>
+    <div className="border-t border-[#C3D0E8]/25 pt-7">
+      <h3 className="text-sm font-semibold text-[#EEF4FF]">Invite Members</h3>
+      <p className="mt-1 text-xs text-[#C3D0E8]/70">You can add teammates now or do it later.</p>
 
-      <div className="mt-5 rounded-xl border border-[#e1e5ef] bg-white/45 p-4">
+      <div className="mt-5 rounded-xl border border-[#C3D0E8]/35 bg-transparent p-4">
         <div className="space-y-4">
           {rows.map((member) => (
             <div
@@ -839,7 +807,7 @@ function InviteEditor({
               className="grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(130px,0.72fr)_minmax(150px,0.86fr)_minmax(170px,1fr)_48px] xl:items-end"
             >
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold text-[#526080]">Email address</span>
+                <span className="mb-2 block text-xs font-semibold text-[#C3D0E8]/70">Email address</span>
                 <input
                   type="email"
                   value={member.email}
@@ -849,7 +817,7 @@ function InviteEditor({
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold text-[#526080]">Nickname</span>
+                <span className="mb-2 block text-xs font-semibold text-[#C3D0E8]/70">Nickname</span>
                 <input
                   type="text"
                   value={member.nickname}
@@ -859,12 +827,12 @@ function InviteEditor({
                 />
               </label>
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold text-[#526080]">Role</span>
+                <span className="mb-2 block text-xs font-semibold text-[#C3D0E8]/70">Role</span>
                 <span className="relative block">
                   <select
                     value={member.role}
                     onChange={(event) => updateMember(member.id, { role: event.target.value })}
-                    className={`${INVITE_INPUT_CLASS} appearance-none pr-10 text-[#526080]`}
+                    className={`${INVITE_INPUT_CLASS} appearance-none pr-10 text-[#C3D0E8]/70`}
                   >
                     <option value="">Select role</option>
                     {SUGGESTED_ROLES.map((role) => (
@@ -873,11 +841,11 @@ function InviteEditor({
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-[#657091]" />
+                  <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-[#C3D0E8]/55" />
                 </span>
               </label>
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold text-[#526080]">
+                <span className="mb-2 block text-xs font-semibold text-[#C3D0E8]/70">
                   Permission Level
                 </span>
                 <span className="relative block">
@@ -886,19 +854,19 @@ function InviteEditor({
                     onChange={(event) =>
                       updateMember(member.id, { permission: event.target.value })
                     }
-                    className={`${INVITE_INPUT_CLASS} appearance-none pr-10 text-[#526080]`}
+                    className={`${INVITE_INPUT_CLASS} appearance-none pr-10 text-[#C3D0E8]/70`}
                   >
                     <option value="full-access">Full access</option>
                     <option value="operations-access">Operations access</option>
                     <option value="view-only">View only</option>
                   </select>
-                  <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-[#657091]" />
+                  <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-[#C3D0E8]/55" />
                 </span>
               </label>
               <button
                 type="button"
                 onClick={() => removeMember(member.id)}
-                className="inline-flex h-12 w-12 items-center justify-center rounded-lg border border-[#dfe3ef] bg-white/65 text-[#657091] transition hover:border-[#ffcaca] hover:text-[#db5555]"
+                className="inline-flex h-12 w-12 items-center justify-center rounded-lg border border-[#C3D0E8]/35 bg-transparent text-[#C3D0E8]/55 transition hover:border-[#ffcaca] hover:text-[#db5555]"
               >
                 <Trash2 className="size-4" />
               </button>
@@ -908,15 +876,15 @@ function InviteEditor({
         <button
           type="button"
           onClick={() => onChange([...rows, emptyInvite()])}
-          className="mt-4 inline-flex h-10 items-center rounded-lg border border-[#E7B66D]/50 bg-white/55 px-4 text-xs font-medium text-[#0F1939] transition hover:bg-[#F8F0E2]"
+          className="mt-4 inline-flex h-10 items-center rounded-full border border-[#C3D0E8]/45 bg-transparent px-4 text-xs font-medium text-[#EEF4FF] transition hover:border-[#c9b56a]/50"
         >
-          <Plus className="mr-2 size-4 text-[#E7B66D]" />
+          <Plus className="mr-2 size-4 text-[#c9b56a]" />
           Add another member
         </button>
       </div>
 
       <div className="mt-7">
-        <h3 className="text-sm font-semibold text-[#151a2b]">Suggested Roles</h3>
+        <h3 className="text-sm font-semibold text-[#EEF4FF]">Suggested Roles</h3>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {SUGGESTED_ROLES.map((role) => {
             const Icon = role.icon;
@@ -927,15 +895,15 @@ function InviteEditor({
                 type="button"
                 onClick={() => applySuggestedRole(role.id)}
                 className={cn(
-                  'relative flex min-h-[172px] flex-col rounded-xl border bg-white p-4 text-left transition',
-                  selected ? 'border-[#E7B66D]' : 'border-[#e1e5ef] hover:border-[#E7B66D]/50',
+                  'relative flex min-h-[172px] flex-col rounded-xl border bg-transparent p-4 text-left transition',
+                  selected ? 'border-[#c9b56a]' : 'border-[#C3D0E8]/35 hover:border-[#C3D0E8]/45',
                 )}
               >
                 <span className={`flex size-10 items-center justify-center rounded-lg ${role.iconBackground}`}>
                   <Icon className={`size-5 ${role.iconClassName}`} strokeWidth={2} />
                 </span>
-                <h4 className="mt-4 text-sm font-semibold text-[#151a2b]">{role.title}</h4>
-                <p className="mt-2 text-xs leading-5 text-[#526080]">{role.description}</p>
+                <h4 className="mt-4 text-sm font-semibold text-[#EEF4FF]">{role.title}</h4>
+                <p className="mt-2 text-xs leading-5 text-[#C3D0E8]/70">{role.description}</p>
                 <span className={`mt-auto w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold ${role.seatsClassName}`}>
                   {role.seats}
                 </span>
@@ -984,9 +952,9 @@ function ReviewGrid({
       <button
         type="button"
         onClick={() => onEdit(3)}
-        className="flex w-full items-start gap-3 rounded-2xl border border-[#E7B66D]/55 bg-white p-4 text-left transition hover:bg-[#F8F0E2]/30"
+        className="flex w-full items-start gap-3 rounded-2xl border border-[#C3D0E8]/45 bg-transparent p-4 text-left transition hover:bg-[#c9b56a]/10"
       >
-        <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#F8F0E2] text-xs font-semibold text-[#0F1939]">
+        <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#C3D0E8]/35 text-xs font-semibold text-[#EEF4FF]">
           {draft.logoDataUrl ? (
             <img src={draft.logoDataUrl} alt="" className="size-full object-cover" />
           ) : (
@@ -994,11 +962,11 @@ function ReviewGrid({
           )}
         </span>
         <span className="min-w-0">
-          <span className="block text-[11px] text-slate-400">Workspace profile</span>
-          <span className="mt-1 block truncate text-sm font-semibold text-slate-950">
+          <span className="block text-[11px] text-[#C3D0E8]/45">Workspace profile</span>
+          <span className="mt-1 block truncate text-sm font-semibold text-[#EEF4FF]">
             {draft.name.trim() || 'Untitled workspace'}
           </span>
-          <span className="mt-1 block text-xs text-slate-500">
+          <span className="mt-1 block text-xs text-[#C3D0E8]/55">
             {type} • {draft.teamSize ? `${draft.teamSize} people` : 'Not set'}
           </span>
         </span>
@@ -1006,19 +974,19 @@ function ReviewGrid({
       <button
         type="button"
         onClick={() => onEdit(4)}
-        className="flex w-full items-start gap-3 rounded-2xl border border-[#E7B66D]/55 bg-white p-4 text-left transition hover:bg-[#F8F0E2]/30"
+        className="flex w-full items-start gap-3 rounded-2xl border border-[#C3D0E8]/45 bg-transparent p-4 text-left transition hover:bg-[#c9b56a]/10"
       >
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#F8F0E2]">
-          <UserRound className="size-5 text-[#E7B66D]" />
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#c9b56a]/12">
+          <UserRound className="size-5 text-[#c9b56a]" />
         </span>
         <span className="min-w-0">
-          <span className="block text-[11px] text-slate-400">Team and Roles</span>
-          <span className="mt-1 block text-sm font-semibold text-slate-950">
+          <span className="block text-[11px] text-[#C3D0E8]/45">Team and Roles</span>
+          <span className="mt-1 block text-sm font-semibold text-[#EEF4FF]">
             {inviteCount === 0
               ? 'Just you'
               : `${inviteCount} ${inviteCount === 1 ? 'teammate' : 'teammates'}`}
           </span>
-          <span className="mt-1 block text-xs text-slate-500">
+          <span className="mt-1 block text-xs text-[#C3D0E8]/55">
             You can invite more people from workspace settings.
           </span>
         </span>
@@ -1026,14 +994,14 @@ function ReviewGrid({
       <button
         type="button"
         onClick={() => onEdit(1)}
-        className="flex w-full items-start gap-3 rounded-2xl border border-[#E7B66D]/55 bg-white p-4 text-left md:col-span-2"
+        className="flex w-full items-start gap-3 rounded-2xl border border-[#C3D0E8]/45 bg-transparent p-4 text-left md:col-span-2"
       >
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#F8F0E2]">
-          <BriefcaseBusiness className="size-5 text-[#E7B66D]" />
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#c9b56a]/12">
+          <BriefcaseBusiness className="size-5 text-[#c9b56a]" />
         </span>
         <span>
-          <span className="block text-[11px] text-slate-400">Account type</span>
-          <span className="mt-1 block text-sm font-semibold text-slate-950">Business</span>
+          <span className="block text-[11px] text-[#C3D0E8]/45">Account type</span>
+          <span className="mt-1 block text-sm font-semibold text-[#EEF4FF]">Business</span>
         </span>
       </button>
     </div>

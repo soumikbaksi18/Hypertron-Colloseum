@@ -13,11 +13,11 @@ import {
 import type { AuditorPayment } from '../lib/wallet';
 
 const PRIMARY =
-  'inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#121F46] to-[#4A63BE] px-5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(18,31,70,0.22)] disabled:opacity-50';
+  'inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#ffe500] px-5 text-sm font-medium text-[#14110e] disabled:opacity-50';
 const SECONDARY =
-  'inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50';
+  'inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#C3D0E8]/45 bg-transparent px-5 text-sm text-[#EEF4FF] hover:bg-white/[0.04] disabled:opacity-50';
 const FIELD =
-  'mt-2 min-h-[5.5rem] w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#4A63BE] focus:ring-4 focus:ring-[#4A63BE]/10';
+  'mt-2 min-h-[5.5rem] w-full rounded-xl border border-[#C3D0E8]/35 bg-transparent px-4 py-3 font-mono text-sm text-[#EEF4FF] outline-none transition placeholder:text-[#C3D0E8]/40 focus:border-[#C3D0E8]/70';
 
 function maskSecret(value: string): string {
   if (value.length < 18) return '••••';
@@ -55,7 +55,7 @@ export function AuditorPage() {
     setBusy(true);
     setError(null);
     try {
-      const opened = await openAuditorBooks(pasted, session.handle ?? null);
+      const opened = await openAuditorBooks(pasted, session?.handle ?? null);
       setBooksFor(opened.handle);
       setPayments(opened.payments);
       if (!opened.payments.length) {
@@ -78,30 +78,30 @@ export function AuditorPage() {
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-[11px] font-semibold tracking-[0.16em] text-[#C9A46A] uppercase">
+        <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">
           Disclosure
         </p>
-        <h1 className="mt-1 text-[28px] font-semibold tracking-tight text-slate-950">
+        <h1 className="dash-display mt-3 text-[clamp(2.2rem,4vw,3.2rem)] leading-[0.96] tracking-[-0.035em] text-[#EEF4FF]">
           Auditor
         </h1>
-        <p className="mt-1 max-w-xl text-sm text-slate-500">
+        <p className="mt-4 max-w-md text-sm leading-relaxed text-[#EEF4FF]/70">
           Share your viewing key, or paste one to see who sent how much to whom.
           A viewing key cannot spend.
         </p>
       </div>
 
       {error ? (
-        <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        <p role="alert" className="rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
           {error}
         </p>
       ) : null}
 
-      <form className="rounded-2xl border border-slate-200 bg-white p-6" onSubmit={(event) => void onOpen(event)}>
-        <p className="text-[11px] font-semibold tracking-[0.14em] text-slate-400 uppercase">
+      <form className="rounded-[1.35rem] border border-[#C3D0E8]/45 bg-[#03080b] p-8" onSubmit={(event) => void onOpen(event)}>
+        <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">
           Open books
         </p>
         <label className="mt-3 block">
-          <span className="text-sm font-semibold text-slate-900">Paste a viewing key</span>
+          <span className="text-sm text-[#EEF4FF]">Paste a viewing key</span>
           <textarea
             className={FIELD}
             value={pasted}
@@ -132,41 +132,41 @@ export function AuditorPage() {
       </form>
 
       {payments ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-6">
-          <p className="text-[11px] font-semibold tracking-[0.14em] text-slate-400 uppercase">
+        <section className="rounded-[1.35rem] border border-[#C3D0E8]/45 bg-[#03080b] p-8">
+          <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">
             Payments
           </p>
-          <h2 className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
+          <h2 className="mt-2 dash-display text-[1.6rem] leading-none text-[#EEF4FF]">
             {booksFor ? `Books for ${booksFor}` : 'Opened payments'}
           </h2>
           {payments.length === 0 ? (
-            <p className="mt-4 text-sm text-slate-500">
+            <p className="mt-4 text-sm text-[#C3D0E8]/55">
               Nothing decrypted. The key may be wrong, or those notes never got a blob.
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-slate-100">
+            <ul className="mt-4 divide-y divide-[#C3D0E8]/25">
               {payments.map((row) => (
                 <li key={`${row.commitment}-${row.leaf_index}`} className="py-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-950">
+                      <p className="flex flex-wrap items-center gap-2 dash-display text-[1.35rem] text-[#EEF4FF]">
                         <span>{row.from}</span>
-                        <ArrowRight className="size-3.5 text-slate-400" strokeWidth={2} />
+                        <ArrowRight className="size-3.5 text-[#C3D0E8]" strokeWidth={2} />
                         <span>{row.to}</span>
                       </p>
-                      <p className="mt-1 text-sm text-slate-600">{row.purpose}</p>
-                      <p className="mt-1 text-xs text-slate-400">
+                      <p className="mt-1 text-sm text-[#C3D0E8]/70">{row.purpose}</p>
+                      <p className="mt-1 text-xs text-[#C3D0E8]/45">
                         {kindLabel(row.kind)}
                         {row.status === 'spent' ? ' · already spent' : ' · still in the pool'}
                       </p>
                       {row.tx_signature ? (
-                        <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                        <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-[#C3D0E8]/55">
                           <span>Pool</span>
                           <ExplorerTxLink signature={row.tx_signature} compact />
                         </p>
                       ) : null}
                     </div>
-                    <p className="text-base font-semibold tracking-tight text-slate-950">
+                    <p className="dash-display text-[1.35rem] leading-none text-[#EEF4FF]">
                       {money(row.amount, 'USDC')}
                     </p>
                   </div>
@@ -178,14 +178,14 @@ export function AuditorPage() {
       ) : null}
 
       {keys ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-6">
-          <p className="text-[11px] font-semibold tracking-[0.14em] text-slate-400 uppercase">
+        <section className="rounded-[1.35rem] border border-[#C3D0E8]/45 bg-[#03080b] p-8">
+          <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">
             Your viewing key
           </p>
-          <p className="mt-3 font-mono text-sm break-all text-slate-950">
+          <p className="mt-3 font-mono text-sm break-all text-[#EEF4FF]">
             {revealed ? keys.viewSecret : maskSecret(keys.viewSecret)}
           </p>
-          <p className="mt-3 text-xs text-slate-500">
+          <p className="mt-3 text-xs text-[#C3D0E8]/55">
             For {session.handle ?? 'this Hypertron ID'}. Give this to an auditor —
             not the Settings backup.
           </p>
@@ -225,9 +225,9 @@ export function AuditorPage() {
           </div>
         </section>
       ) : (
-        <section className="rounded-2xl border border-dashed border-slate-200 bg-white p-6">
-          <p className="text-sm font-semibold text-slate-900">No viewing key on this browser</p>
-          <p className="mt-2 text-sm text-slate-500">
+        <section className="rounded-[1.35rem] border border-dashed border-[#C3D0E8]/35 bg-[#03080b] p-8">
+          <p className="text-sm text-[#EEF4FF]">No viewing key on this browser</p>
+          <p className="mt-2 text-sm text-[#C3D0E8]/55">
             You can still paste someone else’s key above. To share yours, sign in
             here again or import a backup in Settings.
           </p>

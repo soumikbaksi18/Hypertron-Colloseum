@@ -1,40 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight } from "lucide-react";
-import { PhantomSignupDialog } from "../components/PhantomSignupDialog";
-import { clamp01, easeInOutCubic, subscribeScroll } from "./scroll-sync";
+import { EncryptedHoverText } from "./encrypted-text";
+import { clamp01, subscribeScroll } from "./scroll-sync";
 
 const links = [
-  { href: "#product", label: "Product" },
+  { href: "#ways", label: "Product", current: true },
   { href: "#ways", label: "Build" },
   { href: "#protocol", label: "How it works" },
   { href: "#privacy", label: "Privacy" },
   { href: "/app/developers", label: "Docs" },
-  { href: "#about", label: "About" },
 ] as const;
-
-function LogoMark() {
-  return (
-    <span aria-hidden className="landing-nav-logo relative inline-flex size-7 shrink-0 items-center justify-center">
-      <img
-        src="/media/logo_white.png"
-        alt=""
-        width={28}
-        height={28}
-        className="landing-nav-logo-light absolute inset-0 size-full object-contain"
-      />
-      <img
-        src="/media/logo_black.png"
-        alt=""
-        width={28}
-        height={28}
-        className="landing-nav-logo-dark absolute inset-0 size-full object-contain"
-      />
-    </span>
-  );
-}
 
 function covers(el: Element | null, y: number) {
   if (!el) return false;
@@ -55,26 +32,17 @@ function applyTone(tone: "paper" | "void") {
 
 function syncNavTone() {
   const y = 40;
-  const pin = document.querySelector("[data-hero-pin]");
   const home = document.getElementById("home");
   const protocol = document.getElementById("protocol");
   const journey = document.querySelector(".landing-journey-span");
   const privacy = document.querySelector(".landing-privacy-span");
 
-  if (pin instanceof HTMLElement && home && covers(home, y)) {
-    const travel = Math.max(1, pin.offsetHeight - window.innerHeight);
-    if (travel > window.innerHeight * 0.5) {
-      const raw = clamp01(-pin.getBoundingClientRect().top / travel);
-      const shrink = easeInOutCubic(clamp01(raw / 0.46));
-      applyTone(shrink > 0.02 ? "paper" : "void");
-      return;
-    }
+  if (home && covers(home, y)) {
     applyTone("void");
     return;
   }
 
   if (protocol && covers(protocol, y)) {
-    // The journey section is mid-blue from its top edge and only darkens.
     applyTone(progressAt(protocol, y) > 0.04 ? "void" : "paper");
     return;
   }
@@ -92,7 +60,42 @@ function syncNavTone() {
   applyTone("paper");
 }
 
+function Chevron() {
+  return (
+    <svg width="11" height="7" viewBox="0 0 11 7" aria-hidden="true">
+      <path
+        d="M.7.7 5.5 5.3 10.3.7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function Arrow() {
+  return (
+    <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true">
+      <path
+        d="M.5.5 3.5 3.5.5 6.5"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function LandingNavbar() {
+  const [open, setOpen] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
+
   useEffect(() => {
     const unsub = subscribeScroll(syncNavTone);
     return () => {
@@ -101,46 +104,85 @@ export function LandingNavbar() {
     };
   }, []);
 
-  return (
-    <header className="landing-nav fixed inset-x-0 top-0 z-50">
-      <div className="mx-auto flex h-16 w-full items-center justify-between px-5 sm:px-10 lg:px-16">
-        <a
-          href="#home"
-          className="landing-nav-ink inline-flex items-center gap-2.5 font-display text-[15px] font-medium tracking-[0.14em] uppercase"
-        >
-          <LogoMark />
-          Hypertron
-        </a>
+  useEffect(() => {
+    if (!open) return;
+    const panel = document.getElementById(panelId);
+    panel?.querySelector<HTMLElement>("a")?.focus();
 
-        <nav className="hidden items-center gap-7 md:flex">
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    }
+    function onPointer(event: MouseEvent) {
+      if (!headerRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [open, panelId]);
+
+  return (
+    <header ref={headerRef} className={`landing-nav fixed inset-x-0 top-0 z-50${open ? " is-open" : ""}`}>
+      <a href="#home" className="landing-logo-pill" aria-label="Hypertron home">
+        <img
+          src="/media/logo_white.png"
+          alt=""
+          className="landing-logo-mark"
+          width={34}
+          height={34}
+        />
+        <span className="landing-logo-word">Hypertron</span>
+      </a>
+
+      <button
+        ref={buttonRef}
+        type="button"
+        className="landing-menu"
+        aria-expanded={open}
+        aria-controls={panelId}
+        aria-label={open ? "Close menu" : "Open menu"}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span />
+      </button>
+
+      <div className="landing-nav-cluster">
+        <nav id={panelId} className="landing-nav-pill" aria-label="Primary">
           {links.map((link) =>
             link.href.startsWith("/") ? (
               <Link
-                key={`${link.href}-${link.label}`}
+                key={link.label}
                 to={link.href}
-                className="landing-nav-ink text-[11px] font-medium tracking-[0.18em] uppercase transition-opacity hover:opacity-60"
+                className="landing-nav-link"
+                onClick={() => setOpen(false)}
               >
                 {link.label}
               </Link>
             ) : (
               <a
-                key={`${link.href}-${link.label}`}
+                key={link.label}
                 href={link.href}
-                className="landing-nav-ink text-[11px] font-medium tracking-[0.18em] uppercase transition-opacity hover:opacity-60"
+                className={`landing-nav-link${"current" in link && link.current ? " is-current" : ""}`}
+                aria-current={"current" in link && link.current ? "true" : undefined}
+                onClick={() => setOpen(false)}
               >
                 {link.label}
+                {"current" in link && link.current ? <Chevron /> : null}
               </a>
             ),
           )}
         </nav>
-
-        <div className="landing-launch">
-          <PhantomSignupDialog triggerLabel="Launch app" />
-          <ArrowUpRight
-            aria-hidden
-            className="landing-launch-arrow pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2"
-          />
-        </div>
+        <Link to="/app" className="landing-partner-pill" onClick={() => setOpen(false)}>
+          <EncryptedHoverText text="Launch app" />
+          <span className="landing-pill-disc">
+            <Arrow />
+          </span>
+        </Link>
       </div>
     </header>
   );

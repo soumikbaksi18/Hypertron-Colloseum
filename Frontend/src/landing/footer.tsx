@@ -6,8 +6,8 @@ import { BOOK_DEMO } from "./constants";
 
 const NAV_PRIMARY = [
   { href: "#home", label: "Home" },
-  { href: "#product", label: "Capabilities" },
   { href: "#ways", label: "Platform" },
+  { href: "#ways", label: "Capabilities" },
   { href: "#protocol", label: "How it works" },
 ];
 
@@ -28,18 +28,18 @@ const SOCIAL = [
 export function LandingFooter() {
   return (
     <footer id="about" className="landing-footer relative overflow-hidden">
-      <div className="relative mx-auto w-full px-5 sm:px-10 lg:px-16">
+      <div className="landing-pad relative mx-auto w-full">
         {/* light-to-dark fade band above the content */}
         <div className="h-40 sm:h-52" />
 
-        <div className="relative border-t border-white/10">
+        <div className="relative border-t border-[#C3D0E8]/10">
           {/* column grid lines */}
           <div
             aria-hidden
             className="absolute inset-0 grid grid-cols-1 lg:grid-cols-3"
           >
             <div />
-            <div className="hidden border-x border-white/10 lg:block" />
+            <div className="hidden border-x border-[#C3D0E8]/10 lg:block" />
             <div />
           </div>
 
@@ -48,18 +48,18 @@ export function LandingFooter() {
             <div className="lg:pr-10">
               <span
                 aria-hidden
-                className="mb-6 block size-1.5 bg-white/70"
+                className="mb-6 block size-1.5 bg-[#EEF4FF]/70"
               />
-              <p className="font-display text-[20px] leading-snug font-medium tracking-tight text-white">
+              <p className="landing-hero-title text-[20px] leading-snug font-medium tracking-tight text-[#EEF4FF]">
                 Private payments,
                 <br />
                 production ready.
               </p>
-              <p className="mt-5 max-w-[15rem] text-[13px] leading-relaxed text-white/50">
+              <p className="mt-5 max-w-[15rem] text-[13px] leading-relaxed text-[#EEF4FF]/50">
                 One stack on Solana for merchants, application developers, and
                 protocol teams.
               </p>
-              <p className="mt-8 inline-flex items-center gap-2 text-[10px] tracking-[0.16em] text-white/45 uppercase">
+              <p className="mt-8 inline-flex items-center gap-2 text-[10px] tracking-[0.16em] text-[#EEF4FF]/45 uppercase">
                 <img
                   src="/media/solana.png"
                   alt=""
@@ -72,7 +72,7 @@ export function LandingFooter() {
             </div>
 
             <div className="lg:pl-10">
-              <p className="text-[10px] tracking-[0.2em] text-white/45 uppercase">
+              <p className="text-[10px] tracking-[0.2em] text-[#EEF4FF]/45 uppercase">
                 Navigation
               </p>
               <div className="mt-5 flex gap-12">
@@ -81,7 +81,7 @@ export function LandingFooter() {
                     <a
                       key={link.label}
                       href={link.href}
-                      className="text-[14px] text-white/70 transition-colors hover:text-white"
+                      className="text-[14px] text-[#EEF4FF]/70 transition-colors hover:text-[#EEF4FF]"
                     >
                       {link.label}
                     </a>
@@ -93,7 +93,7 @@ export function LandingFooter() {
                       <Link
                         key={link.label}
                         to={link.href}
-                        className="text-[14px] text-white/70 transition-colors hover:text-white"
+                        className="text-[14px] text-[#EEF4FF]/70 transition-colors hover:text-[#EEF4FF]"
                       >
                         {link.label}
                       </Link>
@@ -101,7 +101,7 @@ export function LandingFooter() {
                       <a
                         key={link.label}
                         href={link.href}
-                        className="text-[14px] text-white/70 transition-colors hover:text-white"
+                        className="text-[14px] text-[#EEF4FF]/70 transition-colors hover:text-[#EEF4FF]"
                       >
                         {link.label}
                       </a>
@@ -113,7 +113,7 @@ export function LandingFooter() {
 
             <div className="flex items-start justify-between lg:pl-10">
               <div>
-                <p className="text-[10px] tracking-[0.2em] text-white/45 uppercase">
+                <p className="text-[10px] tracking-[0.2em] text-[#EEF4FF]/45 uppercase">
                   Social
                 </p>
                 <div className="mt-5 flex flex-col gap-2.5">
@@ -123,7 +123,7 @@ export function LandingFooter() {
                       href={link.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[14px] text-white/70 transition-colors hover:text-white"
+                      className="text-[14px] text-[#EEF4FF]/70 transition-colors hover:text-[#EEF4FF]"
                     >
                       {link.label}
                     </a>
@@ -132,7 +132,7 @@ export function LandingFooter() {
               </div>
 
               <div className="text-right">
-                <p className="text-[10px] tracking-[0.2em] text-white/45 uppercase">
+                <p className="text-[10px] tracking-[0.2em] text-[#EEF4FF]/45 uppercase">
                   Back to top
                 </p>
                 <button
@@ -140,7 +140,7 @@ export function LandingFooter() {
                     window.scrollTo({ top: 0, behavior: "smooth" })
                   }
                   aria-label="Back to top"
-                  className="mt-4 inline-flex size-9 items-center justify-center border border-white/20 text-white/60 transition-colors hover:border-white/50 hover:text-white"
+                  className="mt-4 inline-flex size-9 items-center justify-center border border-[#C3D0E8]/20 text-[#EEF4FF]/60 transition-colors hover:border-[#C3D0E8]/50 hover:text-[#EEF4FF]"
                 >
                   <ArrowUp className="size-4" />
                 </button>
@@ -149,8 +149,8 @@ export function LandingFooter() {
           </div>
 
           {/* legal row */}
-          <div className="relative border-t border-white/10 py-6">
-            <p className="text-[10px] tracking-[0.14em] text-white/40 uppercase lg:text-right">
+          <div className="relative border-t border-[#C3D0E8]/10 py-6">
+            <p className="text-[10px] tracking-[0.14em] text-[#EEF4FF]/40 uppercase lg:text-right">
               © {new Date().getFullYear()} Hypertron Labs. All rights reserved.
             </p>
           </div>

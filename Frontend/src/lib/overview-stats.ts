@@ -28,6 +28,12 @@ export type OverviewAttention = {
   detail: string;
 };
 
+export type OverviewActivity = {
+  createdAt: string | null;
+  paidAt: string | null;
+  amountMinor: number;
+};
+
 export type OverviewStats = {
   availableBalance: string;
   pendingVolume: string;
@@ -50,6 +56,7 @@ export type OverviewStats = {
   attention: OverviewAttention[];
   recentPayments: OverviewPaymentRow[];
   paymentLinks: OverviewLinkRow[];
+  activity: OverviewActivity[];
 };
 
 function minorSum(links: PaymentLink[]) {
@@ -59,6 +66,7 @@ function minorSum(links: PaymentLink[]) {
 function initialsFrom(value: string) {
   const parts = value.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return 'HT';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return parts
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? '')
@@ -125,7 +133,10 @@ export async function loadOverviewStats(payoutAddress: string | null): Promise<O
     })} USDC`,
     pendingCount: pending.length,
     successfulPayments: String(paid.length),
-    successRate: created === 0 ? '99%' : `${Math.max(0, Math.round((paid.length / Math.max(started, 1)) * 100))}%`,
+    successRate:
+      created === 0
+        ? '0%'
+        : `${Math.max(0, Math.round((paid.length / Math.max(started, 1)) * 100))}%`,
     activeLinks: String(pending.length),
     collectingToday: pending.length,
     collected: `${toMajor(collectedMinor).toLocaleString('en-US', {
@@ -150,5 +161,10 @@ export async function loadOverviewStats(payoutAddress: string | null): Promise<O
     attention,
     recentPayments,
     paymentLinks,
+    activity: links.map((link) => ({
+      createdAt: link.created_at ?? link.paid_at ?? null,
+      paidAt: link.status === 'paid' ? link.paid_at ?? link.created_at ?? null : null,
+      amountMinor: Number(link.amount) || 0,
+    })),
   };
 }
