@@ -1,0 +1,19 @@
+[toolchain]
+anchor_version = "0.31.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+hypertron_pool = "9HQsgGDHgYw3N8PGnh9EWrUGRHgmp7tmdGaxuBHHA335"
+
+[programs.devnet]
+hypertron_pool = "9HQsgGDHgYw3N8PGnh9EWrUGRHgmp7tmdGaxuBHHA335"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "cargo test -p hypertron-prover --lib"

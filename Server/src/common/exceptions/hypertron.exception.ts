@@ -28,10 +28,13 @@ export class InvalidRequestException extends HypertronException {
 }
 
 export class AuthenticationException extends HypertronException {
-  constructor(message = 'Invalid API key.') {
+  constructor(
+    message = 'Invalid API key.',
+    code = 'invalid_api_key',
+  ) {
     super(HttpStatus.UNAUTHORIZED, {
       type: 'authentication_error',
-      code: 'invalid_api_key',
+      code,
       message,
     });
   }

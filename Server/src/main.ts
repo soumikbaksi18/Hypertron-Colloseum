@@ -1,5 +1,6 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 
 import { AppModule } from './app.module';
@@ -10,8 +11,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.use(helmet());
+  app.use(cookieParser());
   app.enableCors({
-    origin: config.corsOrigins.length > 0 ? config.corsOrigins : true,
+    origin: config.corsOrigins.length > 0
+      ? config.corsOrigins
+      : ['http://localhost:5173', 'http://localhost:5174'],
+    credentials: true,
     allowedHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key'],
   });
 

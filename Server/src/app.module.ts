@@ -13,6 +13,9 @@ import { PolicyModule } from './modules/policy/policy.module';
 import { SettlementModule } from './modules/settlement/settlement.module';
 import { SinkModule } from './modules/sink/sink.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { WalletAuthModule } from './modules/wallet-auth/wallet-auth.module';
+import { PaymentLinksModule } from './modules/payment-links/payment-links.module';
+import { DeveloperKeysModule } from './modules/developer-keys/developer-keys.module';
 
 @Module({
   imports: [
@@ -25,6 +28,9 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     IntentsModule,
     AgentProfileModule,
     SinkModule,
+    WalletAuthModule,
+    PaymentLinksModule,
+    DeveloperKeysModule,
   ],
   controllers: [AppController],
   providers: [

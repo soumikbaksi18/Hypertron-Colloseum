@@ -1,0 +1,45 @@
+[package]
+name = "hypertron-prover"
+description = "Hypertron BN254 Groth16 prover (circomlib Poseidon, Solana-layout proofs)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "hypertron_prover"
+path = "src/lib.rs"
+
+[[bin]]
+name = "hypertron-prove"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[features]
+default = ["cli"]
+cli = ["dep:clap"]
+
+[dependencies]
+ark-bn254 = "0.5"
+ark-ec = "0.5"
+ark-ff = "0.5"
+ark-groth16 = { version = "0.5", default-features = false }
+ark-relations = "0.5"
+ark-r1cs-std = "0.5"
+ark-serialize = "0.5"
+ark-snark = "0.5"
+ark-std = "0.5"
+light-poseidon = "0.4"
+
+anyhow = "1"
+clap = { version = "4", features = ["derive"], optional = true }
+hex = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+chacha20poly1305 = "0.10"
+sha2 = "0.10"
+rand_core = { version = "0.6", features = ["getrandom"] }
+
+[dev-dependencies]
+groth16-solana = "0.2"

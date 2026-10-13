@@ -1,5 +1,6 @@
 import type { PaymentIntent } from '../lib/api';
 import { humanizeReason, money, STATUS_META, truncateHash } from '../lib/format';
+import { ExplorerTxLink } from './ExplorerTxLink';
 import './LifecycleTrace.css';
 
 interface Props {
@@ -188,7 +189,14 @@ export function LifecycleTrace({ intent, onDecide, deciding }: Props) {
             <div>
               <dt>Transaction</dt>
               <dd className="mono">
-                {truncateHash(intent.settlement.tx_signature ?? '')}
+                {intent.settlement.tx_signature ? (
+                  <ExplorerTxLink
+                    compact
+                    signature={intent.settlement.tx_signature}
+                  />
+                ) : (
+                  '—'
+                )}
               </dd>
             </div>
             <div>

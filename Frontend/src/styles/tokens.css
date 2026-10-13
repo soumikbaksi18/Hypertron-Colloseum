@@ -6,6 +6,30 @@
  * redacted the eye already knows what the colour is telling it.
  */
 
+@font-face {
+  font-family: "Aeonik Pro";
+  src: url("/fonts/AeonikPro-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Aeonik Pro";
+  src: url("/fonts/AeonikPro-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Aeonik Pro";
+  src: url("/fonts/AeonikPro-Bold.woff2") format("woff2");
+  font-weight: 600 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* Field */
   --void: #04060d;
@@ -37,6 +61,8 @@
   --mint: #34d399;          /* settled, verified */
 
   /* Type */
+  --aeonik: "Aeonik Pro", "Familjen Grotesk", "Helvetica Neue", sans-serif;
+  --title: "Bodoni Moda", "Times New Roman", serif;
   --display: "Familjen Grotesk", "Helvetica Neue", sans-serif;
   --body: "Inter", system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -60,6 +86,7 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  font-size: 17px;
 }
 
 body {
@@ -68,21 +95,26 @@ body {
   background: var(--void);
   color: var(--ink);
   font-family: var(--body);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 1rem;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-button,
-input,
-select {
+button {
+  cursor: pointer;
+}
+
+/* The marketing page uses utility classes for type, color, and fill.
+   These resets stay off while that page is mounted. */
+:where(body:not(:has(.landing-root, .dash-root))) button,
+:where(body:not(:has(.landing-root, .dash-root))) input,
+:where(body:not(:has(.landing-root, .dash-root))) select {
   font: inherit;
   color: inherit;
 }
 
-button {
-  cursor: pointer;
+:where(body:not(:has(.landing-root, .dash-root))) button {
   border: none;
   background: none;
 }
@@ -108,7 +140,7 @@ button:disabled {
 .eyebrow {
   margin: 0;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.18em;
   text-transform: uppercase;

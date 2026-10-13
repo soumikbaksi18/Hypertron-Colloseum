@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_HYPERTRON_API_URL ?? 'http://localhost:4000';
+import { BASE_URL, parseApi, unreachable, ApiError } from './http';
 
 export type IntentStatus =
   | 'requires_authorization'
@@ -60,16 +60,7 @@ export interface ReceivedWebhook {
   intent: { id?: string; status?: string; reference?: string | null } | null;
 }
 
-export class ApiError extends Error {
-  status: number;
-  code: string;
-
-  constructor(status: number, code: string, message: string) {
-    super(message);
-    this.status = status;
-    this.code = code;
-  }
-}
+export { BASE_URL, ApiError };
 
 async function request<T>(
   path: string,
@@ -90,25 +81,10 @@ async function request<T>(
   try {
     response = await fetch(`${BASE_URL}${path}`, { ...init, headers });
   } catch {
-    throw new ApiError(
-      0,
-      'unreachable',
-      `Can't reach the Hypertron API at ${BASE_URL}. Start the Server and try again.`,
-    );
+    unreachable();
   }
 
-  const payload = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const error = payload?.error;
-    throw new ApiError(
-      response.status,
-      error?.code ?? 'request_failed',
-      error?.message ?? `Request failed with status ${response.status}.`,
-    );
-  }
-
-  return payload as T;
+  return parseApi<T>(response);
 }
 
 export const api = {
@@ -153,4 +129,3 @@ export const api = {
   },
 };
 
-export { BASE_URL };

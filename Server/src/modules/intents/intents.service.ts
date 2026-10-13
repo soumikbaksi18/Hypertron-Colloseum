@@ -179,7 +179,7 @@ export class IntentsService {
 
     const business = await this.prisma.business.findUniqueOrThrow({
       where: { id: settling.businessId },
-      select: { viewPub: true },
+      select: { viewPub: true, payoutAddress: true, walletPubkey: true },
     });
 
     try {
@@ -189,6 +189,7 @@ export class IntentsService {
         amountMinor: settling.amountMinor,
         currency: settling.currency,
         viewPub: business.viewPub,
+        payoutAddress: business.payoutAddress ?? business.walletPubkey,
       });
 
       await this.stateMachine.transition(intentId, IntentStatus.settled, {

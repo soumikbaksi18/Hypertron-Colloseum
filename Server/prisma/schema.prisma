@@ -37,12 +37,27 @@ enum DeliveryStatus {
   failed
 }
 
+enum PaymentLinkStatus {
+  pending
+  paid
+  expired
+  canceled
+}
+
 /// The business that owns agents and grants them bounded financial authority.
 model Business {
   id        String   @id @default(cuid())
   name      String
+  /// Phantom / Solana address that signed in. One business per wallet.
+  walletPubkey  String? @unique
+  /// Where customers send funds for invoices.
+  payoutAddress String?
   /// Reconciliation viewing key (public half). Secrets never live server-side.
   viewPub   String?
+  /// Poseidon owner_pk for invoice notes (public). spend_sk stays in the merchant browser.
+  ownerPk   String?
+  /// Public Hypertron ID (ht_…). Send and invoices use this, not a Solana address.
+  handle    String?  @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -50,8 +65,70 @@ model Business {
   allowedPayees    AllowedPayee[]
   paymentIntents   PaymentIntent[]
   webhookEndpoints WebhookEndpoint[]
+  paymentLinks     PaymentLink[]
+  sessions         DashboardSession[]
 
   @@map("businesses")
+}
+
+/// Short-lived SIWS nonce. Verified once, then deleted.
+model AuthChallenge {
+  id         String   @id @default(cuid())
+  publicKey  String
+  nonce      String
+  message    String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([publicKey, expiresAt])
+  @@map("auth_challenges")
+}
+
+/// HttpOnly cookie session for the merchant dashboard.
+model DashboardSession {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  businessId String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@map("dashboard_sessions")
+}
+
+model PaymentLink {
+  id         String @id @default(cuid())
+  publicId   String @unique
+  businessId String
+
+  amountMinor        BigInt
+  currency           String
+  purpose            String?
+  clientName         String?
+  memo               String?
+  destinationAddress String
+  /// Payee Hypertron ID. Checkout pays this user via in-pool transfer.
+  recipientHandle    String?
+  expiresAt          DateTime?
+  status             PaymentLinkStatus @default(pending)
+
+  paidAt      DateTime?
+  txSignature String?
+  payerPubkey String?
+  /// Relayer unshield tx after the merchant clicks Withdraw.
+  payoutTxSignature String?
+  /// Earliest time a public unshield is allowed (timing gap after deposit).
+  withdrawableAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@map("payment_links")
 }
 
 /// An agent sub-account. This is the unit of bounded financial authority:
@@ -220,6 +297,61 @@ model WebhookDelivery {
   @@unique([endpointId, eventId])
   @@index([status, nextAttemptAt])
   @@map("webhook_deliveries")
+}
+
+/// Off-chain copy of Poseidon Merkle leaves. The on-chain tree stores filled
+/// subtrees only; unshield / transfer proofs need the full leaf vector.
+model PoolLeaf {
+  id        String   @id @default(cuid())
+  mint      String
+  index     Int
+  leaf      String
+  root      String?
+  createdAt DateTime @default(now())
+
+  @@unique([mint, index])
+  @@index([mint])
+  @@map("pool_leaves")
+}
+
+/// Notes the relayer created (and can later spend). Spend secret stays in env.
+model PoolNote {
+  id             String   @id @default(cuid())
+  mint           String
+  leafIndex      Int
+  commitment     String
+  ownerPk        String
+  blindingK      String
+  value          BigInt
+  encryptedBlob  String?
+  spent          Boolean  @default(false)
+  nullifier      String?
+  intentPublicId String?
+  paymentLinkId  String?
+  createdAt      DateTime @default(now())
+
+  @@index([mint, spent])
+  @@index([commitment])
+  @@index([ownerPk, spent])
+  @@map("pool_notes")
+}
+
+/// Proof prepared for a customer-signed invoice deposit, before the tx lands.
+model PoolPendingDeposit {
+  id            String   @id @default(cuid())
+  paymentLinkId String   @unique
+  commitment    String
+  proofHex      String
+  ownerPk       String
+  blindingK     String
+  amount        BigInt
+  encryptedBlob String?
+  txSignature   String?
+  status        String   @default("prepared")
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  @@map("pool_pending_deposits")
 }
 
 /// Replay protection for intent creation, scoped to the calling agent.

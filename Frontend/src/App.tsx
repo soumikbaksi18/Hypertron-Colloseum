@@ -1,80 +1,68 @@
-import { useState } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
 
-import { AuthorityRail } from './components/AuthorityRail';
-import { IntentComposer } from './components/IntentComposer';
-import { KeyGate } from './components/KeyGate';
-import { Ledger, type LedgerView } from './components/Ledger';
-import { LifecycleTrace } from './components/LifecycleTrace';
-import { Masthead } from './components/Masthead';
-import { ReconciliationFeed } from './components/ReconciliationFeed';
-import { useConsole } from './hooks/useConsole';
+import { WalletSessionProvider } from './context/WalletContext';
+import { DashAuth } from './dashboard/dash-auth';
+import { HubShell } from './dashboard/hub-shell';
+import { WorkspaceCreateWizard } from './dashboard/workspace-create-wizard';
+import { WorkspaceShell } from './dashboard/workspace-shell';
+import { LandingPage } from './pages/LandingPage';
+import { AppShell } from './pages/AppShell';
+import { AgentAuthorityPage } from './pages/app/AgentAuthorityPage';
+import { AgentsLayout } from './pages/app/AgentsLayout';
+import { ApprovalsPage } from './pages/app/ApprovalsPage';
+import { PaymentsPage } from './pages/app/PaymentsPage';
+import { ReconcilePage } from './pages/app/ReconcilePage';
+import { RequestPage } from './pages/app/RequestPage';
+import { CheckoutPage } from './pages/CheckoutPage';
+import { SlidesPage } from './pages/SlidesPage';
+import './components/KeyGate.css';
 import './App.css';
 
 export default function App() {
-  const console_ = useConsole();
-  const [view, setView] = useState<LedgerView>('business');
-
-  if (!console_.ready) {
-    return <div className="boot" />;
-  }
-
-  if (!console_.apiKey || !console_.profile) {
-    return <KeyGate error={console_.gateError} onSubmit={console_.signIn} />;
-  }
-
   return (
-    <div className="console">
-      <Masthead
-        profile={console_.profile}
-        live={console_.live}
-        onSignOut={console_.signOut}
-      />
-
-      <AuthorityRail profile={console_.profile} intents={console_.intents} />
-
-      {console_.actionError && (
-        <div className="console-alert" role="alert">
-          <span>{console_.actionError}</span>
-          <button onClick={console_.dismissActionError}>Dismiss</button>
-        </div>
-      )}
-
-      <main className="console-grid">
-        <div className="console-column">
-          <IntentComposer
-            profile={console_.profile}
-            busy={console_.submitting}
-            onSubmit={console_.requestPayment}
-          />
-          <ReconciliationFeed events={console_.webhooks} />
-        </div>
-
-        <div className="console-column">
-          <LifecycleTrace
-            intent={console_.selected}
-            deciding={console_.deciding}
-            onDecide={console_.decide}
-          />
-        </div>
-
-        <div className="console-column console-column-wide">
-          <Ledger
-            intents={console_.intents}
-            view={view}
-            selectedId={console_.selectedId}
-            onChangeView={setView}
-            onSelect={console_.select}
-          />
-        </div>
-      </main>
-
-      <footer className="console-foot">
-        <p>
-          Settlement runs against a mock shielded pool. The BN254 Groth16 Anchor
-          program replaces it behind the same interface — the agent contract does
-          not change.
-        </p>
-      </footer>
-    </div>
+    <WalletSessionProvider>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/pay/:id" element={<CheckoutPage />} />
+        <Route path="/slides" element={<SlidesPage />} />
+        <Route
+          path="/app"
+          element={
+            <DashAuth>
+              <HubShell />
+            </DashAuth>
+          }
+        />
+        <Route
+          path="/app/workspaces/new"
+          element={
+            <DashAuth>
+              <WorkspaceCreateWizard />
+            </DashAuth>
+          }
+        />
+        <Route
+          path="/app/w/:workspaceId"
+          element={
+            <DashAuth>
+              <WorkspaceShell />
+            </DashAuth>
+          }
+        />
+        <Route path="/app/payments" element={<Navigate to="/app" replace />} />
+        <Route path="/app/developers" element={<Navigate to="/app" replace />} />
+        <Route path="/app/settings" element={<Navigate to="/app?tab=settings" replace />} />
+        <Route path="/app/agents" element={<AppShell />}>
+          <Route element={<AgentsLayout />}>
+            <Route index element={<AgentAuthorityPage />} />
+            <Route path="request" element={<RequestPage />} />
+            <Route path="approvals" element={<ApprovalsPage />} />
+            <Route path="ledger" element={<PaymentsPage />} />
+            <Route path="reconcile" element={<ReconcilePage />} />
+          </Route>
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </WalletSessionProvider>
   );
 }

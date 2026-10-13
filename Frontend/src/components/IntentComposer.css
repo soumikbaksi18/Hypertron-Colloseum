@@ -1,5 +1,5 @@
 .composer-actor {
-  font-size: 11px;
+  font-size: 13.5px;
   color: var(--ink-faint);
 }
 
@@ -23,7 +23,7 @@
   border: 1px solid var(--line-strong);
   border-radius: 1px;
   background: var(--panel-inset);
-  font-size: 13.5px;
+  font-size: 16px;
   color: var(--ink);
   transition:
     border-color 0.2s var(--ease),
@@ -82,7 +82,7 @@ select.control {
 }
 
 .control-unit {
-  font-size: 11px;
+  font-size: 13.5px;
   letter-spacing: 0.1em;
   color: var(--ink-faint);
 }
@@ -94,7 +94,7 @@ select.control {
   padding: calc(var(--u) * 3.25);
   border-radius: 1px;
   background: var(--blue-deep);
-  font-size: 12px;
+  font-size: 14.5px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -157,19 +157,19 @@ select.control {
 }
 
 .composer-preset-amount {
-  font-size: 15px;
+  font-size: 17.5px;
   font-weight: 500;
   color: var(--ink);
 }
 
 .composer-preset-label {
-  font-size: 11px;
+  font-size: 13.5px;
   font-weight: 500;
   color: var(--ink-dim);
 }
 
 .composer-preset-hint {
-  font-size: 10px;
+  font-size: 12.5px;
   line-height: 1.35;
   color: var(--ink-faint);
 }

@@ -8,6 +8,8 @@ export interface SettleInput {
   /// Business viewing key (public half) so the payer can address a note the
   /// business can later scan for reconciliation.
   viewPub: string | null;
+  /// SPL destination used when the pool unshields after the private hop.
+  payoutAddress: string | null;
 }
 
 /// What the caller gets back. Deliberately opaque: no proofs, no notes, no
@@ -23,8 +25,8 @@ export interface SettlementResult {
   viewKeyHint: string;
 }
 
-/// The seam. `MockSettlementProvider` satisfies it today; the BN254 Groth16
-/// Anchor pool will satisfy it later without the API or agent contract changing.
+/// The seam. `MockSettlementProvider` or `SolanaPoolSettlementProvider`
+/// (`hypertron_pool`) satisfy it without the API or agent contract changing.
 export interface PrivateSettlementProvider {
   readonly name: string;
   settle(input: SettleInput): Promise<SettlementResult>;
