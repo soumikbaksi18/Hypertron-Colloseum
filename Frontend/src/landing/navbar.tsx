@@ -1,32 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight } from "lucide-react";
-import { BOOK_DEMO } from "./constants";
+import { EncryptedHoverText } from "./encrypted-text";
 import { clamp01, subscribeScroll } from "./scroll-sync";
 
 const links = [
-  { href: "#product", label: "Product" },
+  { href: "#ways", label: "Product", current: true },
   { href: "#ways", label: "Build" },
   { href: "#protocol", label: "How it works" },
   { href: "#privacy", label: "Privacy" },
   { href: "/app/developers", label: "Docs" },
-  { href: "#about", label: "About" },
 ] as const;
-
-function LogoMark() {
-  return (
-    <span aria-hidden className="landing-nav-logo relative inline-grid size-5 shrink-0 grid-cols-3 gap-[2px]">
-      {[...Array(9)].map((_, i) => (
-        <span
-          key={i}
-          className="landing-nav-logo-dot size-[4px] rounded-full bg-current"
-        />
-      ))}
-    </span>
-  );
-}
 
 function covers(el: Element | null, y: number) {
   if (!el) return false;
@@ -58,7 +43,6 @@ function syncNavTone() {
   }
 
   if (protocol && covers(protocol, y)) {
-    // The journey section is mid-blue from its top edge and only darkens.
     applyTone(progressAt(protocol, y) > 0.04 ? "void" : "paper");
     return;
   }
@@ -76,7 +60,42 @@ function syncNavTone() {
   applyTone("paper");
 }
 
+function Chevron() {
+  return (
+    <svg width="11" height="7" viewBox="0 0 11 7" aria-hidden="true">
+      <path
+        d="M.7.7 5.5 5.3 10.3.7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function Arrow() {
+  return (
+    <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true">
+      <path
+        d="M.5.5 3.5 3.5.5 6.5"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function LandingNavbar() {
+  const [open, setOpen] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
+
   useEffect(() => {
     const unsub = subscribeScroll(syncNavTone);
     return () => {
@@ -85,50 +104,85 @@ export function LandingNavbar() {
     };
   }, []);
 
-  return (
-    <header className="landing-nav fixed inset-x-0 top-0 z-50">
-      <div className="mx-auto grid h-[4.5rem] w-full grid-cols-[1fr_auto] items-center px-5 sm:px-8 md:grid-cols-[1fr_auto_1fr] lg:px-12">
-        <a
-          href="#home"
-          className="landing-nav-ink inline-flex items-center gap-2.5 font-display text-[15px] font-medium tracking-[-0.02em]"
-        >
-          <LogoMark />
-          Hypertron
-        </a>
+  useEffect(() => {
+    if (!open) return;
+    const panel = document.getElementById(panelId);
+    panel?.querySelector<HTMLElement>("a")?.focus();
 
-        <nav className="hidden items-center gap-5 lg:gap-8 md:flex">
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    }
+    function onPointer(event: MouseEvent) {
+      if (!headerRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [open, panelId]);
+
+  return (
+    <header ref={headerRef} className={`landing-nav fixed inset-x-0 top-0 z-50${open ? " is-open" : ""}`}>
+      <a href="#home" className="landing-logo-pill" aria-label="Hypertron home">
+        <img
+          src="/media/logo_white.png"
+          alt=""
+          className="landing-logo-mark"
+          width={34}
+          height={34}
+        />
+        <span className="landing-logo-word">Hypertron</span>
+      </a>
+
+      <button
+        ref={buttonRef}
+        type="button"
+        className="landing-menu"
+        aria-expanded={open}
+        aria-controls={panelId}
+        aria-label={open ? "Close menu" : "Open menu"}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span />
+      </button>
+
+      <div className="landing-nav-cluster">
+        <nav id={panelId} className="landing-nav-pill" aria-label="Primary">
           {links.map((link) =>
             link.href.startsWith("/") ? (
               <Link
-                key={`${link.href}-${link.label}`}
+                key={link.label}
                 to={link.href}
                 className="landing-nav-link"
+                onClick={() => setOpen(false)}
               >
                 {link.label}
               </Link>
             ) : (
               <a
-                key={`${link.href}-${link.label}`}
+                key={link.label}
                 href={link.href}
-                className="landing-nav-link"
+                className={`landing-nav-link${"current" in link && link.current ? " is-current" : ""}`}
+                aria-current={"current" in link && link.current ? "true" : undefined}
+                onClick={() => setOpen(false)}
               >
                 {link.label}
+                {"current" in link && link.current ? <Chevron /> : null}
               </a>
             ),
           )}
         </nav>
-
-        <div className="justify-self-end">
-          <a
-            href={BOOK_DEMO}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="landing-nav-cta"
-          >
-            Book a demo
-            <ArrowUpRight className="size-3.5" strokeWidth={1.75} />
-          </a>
-        </div>
+        <Link to="/app" className="landing-partner-pill" onClick={() => setOpen(false)}>
+          <EncryptedHoverText text="Launch app" />
+          <span className="landing-pill-disc">
+            <Arrow />
+          </span>
+        </Link>
       </div>
     </header>
   );

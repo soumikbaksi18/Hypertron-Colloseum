@@ -27,7 +27,7 @@ export function AccordionItem({
   index,
   children,
   className = "",
-  questionClassName = "landing-hero-title text-[17px] leading-snug tracking-[-0.02em] text-[#1c2433] sm:text-[19px]",
+  questionClassName = "landing-hero-title text-[17px] leading-snug tracking-[-0.02em] text-[#102340] sm:text-[19px]",
   variant = "plain",
 }: {
   question: string;
@@ -49,8 +49,8 @@ export function AccordionItem({
   if (variant === "faq") {
     return (
       <div
-        className={`border-b border-[#d7dee8] transition-colors duration-300 ${
-          open ? "bg-[#e8edf2]" : "bg-white/35"
+        className={`border-b border-[#cfdcf0] transition-colors duration-300 ${
+          open ? "bg-[#e6edf8]" : "bg-white/35"
         } ${className}`}
       >
         <button
@@ -59,17 +59,17 @@ export function AccordionItem({
           onClick={toggle}
           className="grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-4 py-5 text-left sm:gap-5 sm:px-5 sm:py-6"
         >
-          <span className="inline-flex h-7 items-center gap-1.5 bg-[#e4e9f0] px-2 text-[11px] tracking-[0.08em] text-[#6b7380]">
-            <span aria-hidden className="size-1.5 bg-[#111827]" />
+          <span className="inline-flex h-7 items-center gap-1.5 bg-[#e6edf8] px-2 text-[11px] tracking-[0.08em] text-[#6b7380]">
+            <span aria-hidden className="size-1.5 bg-[#102340]" />
             {String(index ?? 0).padStart(2, "0")}
           </span>
-          <span className="landing-hero-title min-w-0 text-[15px] leading-snug tracking-[-0.02em] text-[#111827] sm:text-[17px]">
+          <span className="landing-hero-title min-w-0 text-[15px] leading-snug tracking-[-0.02em] text-[#102340] sm:text-[17px]">
             {question}
           </span>
           <span
             aria-hidden
             className={`grid size-8 place-items-center transition-colors duration-300 ${
-              open ? "bg-[#3b82f6]" : "bg-[#111827]"
+              open ? "bg-[#3e639b]" : "bg-[#102340]"
             }`}
           >
             <span
@@ -105,7 +105,7 @@ export function AccordionItem({
   }
 
   return (
-    <div className={`border-b border-[#d5dce6] ${className}`}>
+    <div className={`border-b border-[#cfdcf0] ${className}`}>
       <button
         type="button"
         aria-expanded={open}
@@ -114,7 +114,7 @@ export function AccordionItem({
       >
         <span className="flex min-w-0 items-start gap-4">
           {index != null ? (
-            <span className="mt-1 shrink-0 text-[11px] tracking-[0.16em] text-[#8a93a3]">
+            <span className="mt-1 shrink-0 text-[11px] tracking-[0.16em] text-[#6d86ac]">
               {String(index).padStart(2, "0")}
             </span>
           ) : null}
@@ -122,7 +122,7 @@ export function AccordionItem({
         </span>
         <span
           aria-hidden
-          className={`mt-1 shrink-0 text-[18px] leading-none text-[#8a93a3] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          className={`mt-1 shrink-0 text-[18px] leading-none text-[#6d86ac] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
             open ? "rotate-45" : "rotate-0"
           }`}
         >

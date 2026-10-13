@@ -1,111 +1,170 @@
+import { useEffect, useState, type ReactNode } from "react";
+import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { ArrowDown, ArrowRight, Play } from "lucide-react";
-import { AsciiImage } from "./ascii-image";
 import { BOOK_DEMO } from "./constants";
+import { EncryptedHoverText } from "./encrypted-text";
+import { HeroCursor } from "./hero-cursor";
+import { HeroMesh } from "./hero-mesh";
 
-const RAIL = ["Solana", "Stablecoins", "Privacy", "For business"] as const;
+function Arrow() {
+  return (
+    <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true">
+      <path
+        d="M.6.6 4 4 .6 7.4"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+const revealEase = [0.22, 1, 0.36, 1] as const;
+
+const TICKER = [
+  "Private payments on Solana",
+  "Shielded settlement",
+  "Selective disclosure",
+  "Shared privacy pool",
+  "No public payment trail",
+  "Merchant checkout",
+  "Treasury and reconciliation",
+  "Stripe-like API",
+  "Audit when you choose",
+] as const;
+
+function useHeroOpen() {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || !document.documentElement.dataset.preloading) {
+      setOpen(true);
+      return;
+    }
+    const onOpen = () => setOpen(true);
+    window.addEventListener("hypertron:open", onOpen);
+    return () => window.removeEventListener("hypertron:open", onOpen);
+  }, []);
+
+  return open;
+}
+
+function RevealLine({
+  children,
+  open,
+  delay,
+}: {
+  children: ReactNode;
+  open: boolean;
+  delay: number;
+}) {
+  return (
+    <span className="landing-hero-reveal">
+      <motion.span
+        initial={false}
+        animate={{ y: open ? "0%" : "115%" }}
+        transition={{ duration: open ? 0.9 : 0, ease: revealEase, delay: open ? delay : 0 }}
+      >
+        {children}
+      </motion.span>
+    </span>
+  );
+}
 
 export function LandingHero() {
-  return (
-    <section
-      id="home"
-      className="relative flex min-h-[100svh] flex-col overflow-hidden bg-[#05060c] text-white"
-    >
-      {/* ASCII Background */}
-      <AsciiImage />
-      
-      {/* Gradient overlays for text readability */}
-      <div className="landing-hero-scrim pointer-events-none absolute inset-0" />
+  const open = useHeroOpen();
 
-      {/* Right side rail */}
-      <aside className="pointer-events-none absolute top-1/2 right-6 z-10 hidden -translate-y-1/2 lg:flex lg:items-stretch lg:gap-4 xl:right-10">
-        <span className="w-px self-stretch bg-white/20" />
-        <div className="flex flex-col gap-1.5 text-[10px] font-medium tracking-[0.22em] text-white/50 uppercase">
-          {RAIL.map((item) => (
-            <span key={item}>{item}</span>
+  return (
+    <section id="home" className="landing-hero">
+      <img
+        src="/media/image2.png"
+        alt=""
+        className="landing-hero-bg"
+        aria-hidden
+      />
+      <div className="landing-hero-scrim" aria-hidden />
+      <HeroMesh />
+      <HeroCursor />
+      <div className="landing-hero-copy">
+        <h1 className="landing-hero-title">
+          <RevealLine open={open} delay={0.02}>
+            Private
+          </RevealLine>
+          <RevealLine open={open} delay={0.1}>
+            Payments,
+          </RevealLine>
+          <RevealLine open={open} delay={0.18}>
+            Built For <em>Business.</em>
+          </RevealLine>
+        </h1>
+        <p className="landing-hero-lede">
+          <RevealLine open={open} delay={0.32}>
+            Onboard, settle, and operate on Solana
+          </RevealLine>
+          <RevealLine open={open} delay={0.4}>
+            without exposing your business on-chain.
+          </RevealLine>
+        </p>
+        <motion.div
+          className="landing-hero-actions"
+          initial={false}
+          animate={{ opacity: open ? 1 : 0, y: open ? 0 : 12 }}
+          transition={{ duration: 0.6, ease: revealEase, delay: open ? 0.5 : 0 }}
+        >
+          <a
+            href={BOOK_DEMO}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="landing-cta-pill"
+          >
+            <EncryptedHoverText text="Book a demo" />
+            <span className="landing-pill-disc">
+              <Arrow />
+            </span>
+          </a>
+          <Link to="/app/developers" className="landing-text-link">
+            Explore docs
+          </Link>
+        </motion.div>
+      </div>
+
+      <div className="landing-hero-ticker" aria-hidden>
+        <div className="landing-hero-ticker-track">
+          {[0, 1].map((copy) => (
+            <div key={copy}>
+              {TICKER.map((item) => (
+                <span key={`${copy}-${item}`}>
+                  {item}
+                  <i />
+                </span>
+              ))}
+            </div>
           ))}
         </div>
-      </aside>
-
-      {/* Main content */}
-      <div className="relative z-10 flex min-h-[100svh] flex-col px-5 pt-24 pb-7 sm:px-10 lg:px-14 xl:px-16">
-        <div className="max-w-[44rem] pt-[clamp(2.2rem,8vh,6rem)]">
-          {/* Eyebrow */}
-          <p className="hero-enter text-[11px] font-medium tracking-[0.22em] text-[#b7a6ff] uppercase">
-            Private payments on Solana
-          </p>
-          
-          {/* Headline */}
-          <h1 className="landing-hero-title hero-enter hero-enter-delay-1 mt-5 text-[clamp(2.7rem,5.5vw,5.2rem)] leading-[0.96] font-medium tracking-[-0.04em]">
-            Private payments,
-            <br />
-            built for <span className="landing-hero-gradient">business.</span>
-          </h1>
-          
-          {/* Subtext */}
-          <p className="hero-enter hero-enter-delay-2 mt-6 max-w-[28rem] text-[15px] leading-[1.6] text-white/55 sm:text-[16px]">
-            Onboard, settle, and operate on Solana
-            <span className="sm:inline"> without exposing your business on-chain.</span>
-          </p>
-          
-          {/* CTA Buttons */}
-          <div className="hero-enter hero-enter-delay-3 mt-8 flex flex-wrap items-center gap-3">
-            <Link
-              to="/app/developers"
-              className="inline-flex h-11 items-center gap-2 rounded-full border border-white/25 bg-transparent px-5 text-[13px] font-medium text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b7c9ff]"
-            >
-              Explore docs
-              <ArrowRight className="size-3.5" />
-            </Link>
-            <a
-              href={BOOK_DEMO}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-11 items-center gap-2 rounded-full border border-white/15 bg-[#12141a] px-5 text-[13px] font-medium text-white transition hover:bg-[#1a1d24] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b7c9ff]"
-            >
-              <span className="landing-live-dot size-1.5 rounded-full bg-[#3ee08a]" />
-              Live on testnet
-              <ArrowRight className="size-3.5 text-white/60" />
-            </a>
-          </div>
-          
-          {/* Watch demo link */}
-          <a
-            href="#"
-            className="hero-enter hero-enter-delay-4 mt-7 inline-flex items-center gap-3 text-white/70 transition hover:text-white focus-visible:outline-none"
-          >
-            <span className="flex size-8 items-center justify-center rounded-full border border-white/20 bg-white/5">
-              <Play className="ml-0.5 size-3 fill-current" />
-            </span>
-            <span className="text-[13px] font-medium underline decoration-white/30 underline-offset-2">Watch demo</span>
-            <span className="text-[12px] text-white/40">2 min</span>
-          </a>
-        </div>
-
-        {/* Bottom bar */}
-        <div className="mt-auto flex items-end justify-between gap-6 pt-16">
-          {/* Scroll indicator */}
-          <a
-            href="#product"
-            className="group inline-flex items-center gap-3 text-[10px] font-medium tracking-[0.2em] text-white/40 uppercase transition hover:text-white/70"
-          >
-            <span className="flex flex-col items-center text-white/30 group-hover:text-white/50">
-              <span className="mb-1.5 h-10 w-px bg-current" />
-              <ArrowDown className="size-3.5 animate-bounce" strokeWidth={1.5} />
-            </span>
-            <span className="leading-[1.4]">
-              Scroll
-              <br />
-              to explore
-            </span>
-          </a>
-          
-          {/* Bottom right tagline */}
-          <p className="hidden text-[10px] font-medium tracking-[0.22em] text-white/35 uppercase sm:block">
-            Pay · Settle · Operate · Onchain
-          </p>
-        </div>
       </div>
+
+      <motion.a
+        href="#ways"
+        className="landing-scroll"
+        initial={false}
+        animate={{ opacity: open ? 1 : 0 }}
+        transition={{ duration: 0.5, delay: open ? 0.62 : 0 }}
+      >
+        Scroll for details
+        <svg width="11" height="7" viewBox="0 0 11 7" aria-hidden="true">
+          <path
+            d="M.7.7 5.5 5.3 10.3.7"
+            fill="none"
+            stroke="#C3D0E8"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </motion.a>
     </section>
   );
 }

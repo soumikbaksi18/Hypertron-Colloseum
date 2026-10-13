@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { LandingCta } from '../landing/cta';
 import { LandingEcosystem } from '../landing/ecosystem';
@@ -6,20 +6,24 @@ import { LandingFaq } from '../landing/faq';
 import { LandingFooter } from '../landing/footer';
 import { LandingHero } from '../landing/hero';
 import { LandingNavbar } from '../landing/navbar';
+import { LandingPreloader } from '../landing/preloader';
 import { LandingOperations } from '../landing/operations';
 import { LandingPrivacy } from '../landing/privacy';
 import { LandingProcess } from '../landing/process';
-import { LandingProduct } from '../landing/product';
 import { SmoothScroll } from '../landing/smooth-scroll';
 import { LandingWays } from '../landing/ways';
+import { useLandingSound } from '../landing/use-landing-sound';
 import '../landing/landing.css';
 
 export function LandingPage() {
+  const rootRef = useRef<HTMLDivElement>(null);
+  useLandingSound(rootRef);
+
   useEffect(() => {
     const root = document.documentElement;
     const previousTitle = document.title;
     const previousSize = root.style.fontSize;
-    document.title = 'Hypertron — Private payments, built for business.';
+    document.title = 'Hypertron. Private payments, built for business.';
     root.style.fontSize = '16px';
 
     return () => {
@@ -30,16 +34,18 @@ export function LandingPage() {
   }, []);
 
   return (
-    <div className="landing-root relative flex min-h-svh flex-1 flex-col overflow-x-clip">
+    <div ref={rootRef} className="landing-root relative flex min-h-svh flex-1 flex-col">
+      <LandingPreloader />
       <SmoothScroll />
       <LandingNavbar />
 
-      <main className="relative z-10 flex flex-1 flex-col">
-        <LandingHero />
-        <LandingProduct />
-        <div className="landing-journey-span">
+      <main className="relative flex flex-1 flex-col">
+        <div className="landing-hero-stack">
+          <LandingHero />
           <LandingWays />
-          <LandingProcess />
+          <div className="landing-journey-span">
+            <LandingProcess />
+          </div>
         </div>
         <div className="landing-privacy-span">
           <LandingPrivacy />

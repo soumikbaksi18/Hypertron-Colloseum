@@ -181,7 +181,8 @@
 .slides-title {
   margin: 0;
   max-width: 12em;
-  font-family: var(--aeonik), var(--display);
+  font-family: var(--title);
+  font-optical-sizing: auto;
   font-size: clamp(2rem, 4.2vw, 3.35rem);
   font-weight: 500;
   line-height: 0.98;

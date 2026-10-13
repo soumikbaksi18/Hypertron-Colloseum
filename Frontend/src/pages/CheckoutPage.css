@@ -17,7 +17,8 @@
 
 .checkout-brand h1 {
   margin: 0;
-  font-family: var(--aeonik), var(--display);
+  font-family: var(--title);
+  font-optical-sizing: auto;
   font-size: clamp(2rem, 4vw, 3rem);
   letter-spacing: -0.03em;
 }

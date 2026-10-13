@@ -47,6 +47,11 @@
   color: #eef4ff;
 }
 
+.dash-root h1 {
+  font-family: var(--title);
+  font-optical-sizing: auto;
+}
+
 .dash-surface {
   --ink: #0f172a;
   --ink-dim: #475569;

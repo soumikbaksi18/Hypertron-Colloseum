@@ -114,7 +114,8 @@
 
 .gate-title {
   margin: 0 0 calc(var(--u) * 4);
-  font-family: var(--display);
+  font-family: var(--title);
+  font-optical-sizing: auto;
   font-size: clamp(23px, 3.6vw, 31px);
   font-weight: 600;
   letter-spacing: -0.03em;
