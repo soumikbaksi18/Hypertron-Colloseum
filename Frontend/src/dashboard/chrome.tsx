@@ -9,11 +9,12 @@ import {
   ShieldUser,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { useWalletSession } from '../context/WalletContext';
+import { AsciiField } from './ascii-field';
 import { cn } from './cn';
-import { HypertronLogoMark } from './logo-mark';
 
 export type DashboardNavItem = {
   id: string;
@@ -29,6 +30,71 @@ export type DashboardIdentity = {
 
 export type DashboardMode = 'personal' | 'workspaces';
 
+export type BreadcrumbCrumb = {
+  label: string;
+  onSelect?: () => void;
+};
+
+function DashboardBreadcrumb({
+  breadcrumb,
+  tone,
+}: {
+  breadcrumb: string | BreadcrumbCrumb[];
+  tone: 'canvas' | 'panel';
+}) {
+  const crumbs: BreadcrumbCrumb[] =
+    typeof breadcrumb === 'string'
+      ? breadcrumb
+          .split('/')
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .map((label) => ({ label }))
+      : breadcrumb;
+  const canvas = tone === 'canvas';
+
+  return (
+    <nav
+      aria-label="Breadcrumb"
+      className={
+        canvas
+          ? 'flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase'
+          : 'flex min-w-0 flex-wrap items-center gap-1.5 text-sm text-slate-500'
+      }
+    >
+      {crumbs.map((crumb, index) => {
+        const current = index === crumbs.length - 1;
+        const linked = !current && typeof crumb.onSelect === 'function';
+        return (
+          <span key={`${crumb.label}-${index}`} className="inline-flex items-center gap-1.5">
+            {index > 0 ? (
+              <ChevronRight
+                aria-hidden
+                className={canvas ? 'size-3 text-[#c9b56a]/70' : 'size-3.5 text-slate-300'}
+                strokeWidth={2}
+              />
+            ) : null}
+            {linked ? (
+              <button
+                type="button"
+                onClick={crumb.onSelect}
+                className={
+                  canvas
+                    ? 'text-[#c9b56a]/70 transition hover:text-[#c9b56a]'
+                    : 'transition hover:text-slate-800'
+                }
+              >
+                {crumb.label}
+              </button>
+            ) : (
+              <span aria-current={current ? 'page' : undefined}>{crumb.label}</span>
+            )}
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
+
 function ModeToggle({
   mode,
   onChange,
@@ -41,12 +107,12 @@ function ModeToggle({
       <div
         role="tablist"
         aria-label="Account mode"
-        className="relative grid grid-cols-2 rounded-full border border-white/10 bg-white/[0.06] p-1"
+        className="relative grid grid-cols-2 rounded-md border border-[#C3D0E8]/35 bg-transparent p-1"
       >
         <span
           aria-hidden
           className={cn(
-            'pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-full bg-[#E7B66D] shadow-[0_0_16px_rgba(231,182,109,0.35)] transition-transform duration-200 ease-out',
+            'pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-sm bg-[#ffe500] transition-transform duration-200 ease-out',
             mode === 'workspaces' ? 'translate-x-[calc(100%+4px)]' : 'translate-x-0',
           )}
         />
@@ -56,8 +122,8 @@ function ModeToggle({
           aria-selected={mode === 'personal'}
           onClick={() => onChange('personal')}
           className={cn(
-            'relative z-10 h-8 rounded-full text-[12px] font-semibold tracking-tight transition',
-            mode === 'personal' ? 'text-[#0F1939]' : 'text-white/55 hover:text-white',
+            'relative z-10 h-8 rounded-sm text-[12px] tracking-tight transition',
+            mode === 'personal' ? 'text-[#14110e]' : 'text-[#C3D0E8]/55 hover:text-[#EEF4FF]',
           )}
         >
           Personal
@@ -68,8 +134,8 @@ function ModeToggle({
           aria-selected={mode === 'workspaces'}
           onClick={() => onChange('workspaces')}
           className={cn(
-            'relative z-10 h-8 rounded-full text-[12px] font-semibold tracking-tight transition',
-            mode === 'workspaces' ? 'text-[#0F1939]' : 'text-white/55 hover:text-white',
+            'relative z-10 h-8 rounded-sm text-[12px] tracking-tight transition',
+            mode === 'workspaces' ? 'text-[#14110e]' : 'text-[#C3D0E8]/55 hover:text-[#EEF4FF]',
           )}
         >
           Workspaces
@@ -102,9 +168,15 @@ function DashboardSidebar({
 
   return (
     <aside className={cn('dash-sidebar flex flex-col py-2 pb-10 pl-1', className)}>
-      <Link to="/app" className="flex items-center gap-2.5 px-3 pt-2">
-        <HypertronLogoMark size={32} />
-        <span className="font-display text-[15px] font-semibold tracking-tight text-white">
+      <Link to="/app" className="dash-brand flex items-center gap-2.5 px-3 pt-2 no-underline">
+        <img
+          src="/media/logo_white.png"
+          alt=""
+          width={28}
+          height={28}
+          className="size-7 shrink-0 object-contain"
+        />
+        <span className="dash-display text-[22px] leading-none tracking-[-0.03em] text-[#EEF4FF]">
           Hypertron
         </span>
       </Link>
@@ -126,26 +198,26 @@ function DashboardSidebar({
                 type="button"
                 onClick={() => onSelect(item.id)}
                 className={cn(
-                  'relative flex h-10 w-full items-center gap-2.5 rounded-xl px-3 text-left text-sm font-medium transition',
+                  'relative flex h-10 w-full items-center gap-2.5 rounded-md px-3 text-left text-sm transition',
                   active
-                    ? 'bg-gradient-to-r from-[#E7B66D]/22 via-[#E7B66D]/10 to-transparent text-white shadow-[inset_0_0_0_1px_rgba(231,182,109,0.28)]'
-                    : 'text-white/55 hover:bg-white/[0.05] hover:text-white',
+                    ? 'border border-[#C3D0E8]/45 text-[#EEF4FF]'
+                    : 'text-[#C3D0E8]/55 hover:bg-white/[0.04] hover:text-[#EEF4FF]',
                 )}
               >
                 {active ? (
                   <span
                     aria-hidden
-                    className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-[#E7B66D] shadow-[0_0_12px_rgba(231,182,109,0.65)]"
+                    className="absolute inset-y-3 left-2 size-1.5 rounded-full bg-[#c9b56a]"
                   />
                 ) : null}
                 <Icon
                   className={cn(
                     'size-4 shrink-0',
-                    active ? 'text-[#E7B66D]' : 'text-white/45',
+                    active ? 'text-[#c9b56a]' : 'text-[#C3D0E8]/55',
                   )}
                   strokeWidth={1.85}
                 />
-                <span className={active ? 'text-white' : undefined}>{item.label}</span>
+                <span className={active ? 'text-[#EEF4FF]' : undefined}>{item.label}</span>
               </button>
             </div>
           );
@@ -155,9 +227,9 @@ function DashboardSidebar({
       <div className="space-y-3 px-2">
         <button
           type="button"
-          className="flex h-10 w-full items-center gap-2.5 rounded-xl px-3 text-left text-sm font-medium text-white transition hover:bg-white/[0.05]"
+          className="flex h-10 w-full items-center gap-2.5 rounded-md px-3 text-left text-sm text-[#C3D0E8]/70 transition hover:bg-white/[0.04] hover:text-[#EEF4FF]"
         >
-          <CircleHelp className="size-4 text-[#E7B66D]" strokeWidth={1.85} />
+          <CircleHelp className="size-4 text-[#C3D0E8]" strokeWidth={1.85} />
           Help &amp; Support
         </button>
 
@@ -184,7 +256,7 @@ export function DashboardChrome({
   navItems: DashboardNavItem[];
   activeId: string;
   onSelect: (id: string) => void;
-  breadcrumb: string;
+  breadcrumb: string | BreadcrumbCrumb[];
   searchPlaceholder: string;
   identity?: DashboardIdentity;
   identityTo?: string;
@@ -197,10 +269,12 @@ export function DashboardChrome({
   children: ReactNode;
 }) {
   const identityTitle = identity?.title ?? 'Not signed in';
+  const reduceMotion = useReducedMotion();
 
   if (variant === 'canvas') {
     return (
       <div className="dash-root dash-canvas relative flex h-svh overflow-hidden text-white">
+        <AsciiField />
         <DashboardSidebar
           navItems={navItems}
           activeId={activeId}
@@ -209,29 +283,30 @@ export function DashboardChrome({
           mode={mode}
           onModeChange={onModeChange}
           showModeToggle={false}
-          className="relative z-20 border-r border-white/10 bg-[#060d1a]"
+          className="relative z-20 border-r border-[#C3D0E8]/25 bg-[#03080b]"
         />
 
         <section
           className={cn(
-            'relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-3 pt-3 pb-2 sm:px-4 sm:pt-4 md:px-5',
+            'relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-[#03080b] px-3 pt-3 pb-2 sm:px-4 sm:pt-4 md:px-5',
             overviewScaled && 'dash-main--overview-scaled',
           )}
         >
           {hideHeader ? null : (
-            <header className="mb-4 flex items-center justify-between gap-4">
-              <p className="text-sm text-white/45">{breadcrumb}</p>
+            <header className="sticky top-0 z-30 -mx-3 mb-4 flex items-center justify-between gap-4 bg-[#03080b] px-3 py-3 sm:-mx-4 sm:px-4 md:-mx-5">
+              <DashboardBreadcrumb breadcrumb={breadcrumb} tone="canvas" />
               <DashboardUtilities
                 searchPlaceholder={searchPlaceholder}
                 identityTitle={identityTitle}
                 mode={mode}
                 onModeChange={onModeChange}
-                showAccount={false}
                 density="regular"
               />
             </header>
           )}
-          {children}
+          <DashPage pageKey={activeId || 'page'} reduceMotion={reduceMotion}>
+            {children}
+          </DashPage>
         </section>
       </div>
     );
@@ -268,7 +343,7 @@ export function DashboardChrome({
 
         <section className="dash-surface flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[28px] bg-[#f7f8fb] text-slate-950 shadow-[0_30px_80px_rgba(0,0,0,0.35)]">
           <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-slate-100 bg-white/70 px-5 md:px-6">
-            <p className="text-sm text-slate-400">{breadcrumb}</p>
+            <DashboardBreadcrumb breadcrumb={breadcrumb} tone="panel" />
             <div className="flex items-center gap-2">
               <label className="relative hidden h-9 w-56 items-center rounded-full border border-slate-200 bg-slate-50 sm:flex">
                 <Search
@@ -295,10 +370,38 @@ export function DashboardChrome({
             </div>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-7 md:py-7">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-7 md:py-7">
+            <DashPage pageKey={activeId || 'page'} reduceMotion={reduceMotion}>
+              {children}
+            </DashPage>
+          </div>
         </section>
       </div>
     </div>
+  );
+}
+
+function DashPage({
+  pageKey,
+  reduceMotion,
+  children,
+}: {
+  pageKey: string;
+  reduceMotion: boolean | null;
+  children: ReactNode;
+}) {
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={pageKey}
+        initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={reduceMotion ? undefined : { opacity: 0, y: -4 }}
+        transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -342,7 +445,7 @@ export function DashboardUtilities({
     <div className="flex items-center gap-2">
       <label className={cn('relative hidden shrink-0 items-center sm:flex', regular ? 'h-10 w-72' : 'h-8 w-[248px]')}>
         <Search
-          className={cn('pointer-events-none absolute left-3 text-white/40', regular ? 'size-4' : 'size-3')}
+          className={cn('pointer-events-none absolute left-3 text-[#C3D0E8]/55', regular ? 'size-4' : 'size-3')}
           strokeWidth={1.75}
         />
         <input
@@ -350,12 +453,12 @@ export function DashboardUtilities({
           type="search"
           placeholder={searchPlaceholder}
           className={cn(
-            'h-full w-full border border-white/10 bg-[#0b1527] text-white placeholder:text-white/35 focus:border-white/25 focus:outline-none',
-            regular ? 'rounded-xl pr-9 pl-10 text-sm' : 'rounded-lg pr-8 pl-8 text-[8px]',
+            'h-full w-full border border-[#C3D0E8]/45 bg-transparent text-[#EEF4FF] placeholder:text-[#C3D0E8]/45 focus:border-[#C3D0E8]/70 focus:outline-none',
+            regular ? 'rounded-full pr-9 pl-10 text-sm' : 'rounded-full pr-8 pl-8 text-[8px]',
           )}
         />
         <kbd className={cn(
-          'pointer-events-none absolute right-2 flex items-center justify-center rounded border border-white/10 bg-white/[0.03] font-medium text-white/35',
+          'pointer-events-none absolute right-2 flex items-center justify-center rounded-full border border-[#C3D0E8]/35 bg-transparent font-medium text-[#C3D0E8]/55',
           regular ? 'h-5 min-w-5 px-1 text-[10px]' : 'h-4 min-w-4 px-1 text-[7px]',
         )}>
           /
@@ -365,12 +468,12 @@ export function DashboardUtilities({
         type="button"
         aria-label="Notifications"
         className={cn(
-          'relative inline-flex items-center justify-center border border-white/10 bg-[#0b1527] text-white/65 transition hover:border-white/20',
-          regular ? 'size-10 rounded-xl' : 'size-8 rounded-lg',
+          'relative inline-flex items-center justify-center border border-[#C3D0E8]/45 bg-transparent text-[#C3D0E8] transition hover:border-[#C3D0E8]/70',
+          regular ? 'size-10 rounded-full' : 'size-8 rounded-full',
         )}
       >
         <Bell className={regular ? 'size-4' : 'size-3.5'} />
-        <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-rose-500 ring-2 ring-[#0b1527]" />
+        <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-[#c9b56a] ring-2 ring-[#03080b]" />
       </button>
       {showAccount ? (
         <AccountMenu
@@ -439,7 +542,7 @@ function AccountMenu({
             ? 'inline-flex size-9 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_20%,#9eb0ff,#243056_42%,#12182e)] text-[11px] font-semibold text-white ring-1 ring-white/20 transition hover:ring-white/40'
             : variant === 'sidebar'
               ? 'flex w-full items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.025] px-2.5 py-2 text-left transition hover:bg-white/[0.055]'
-              : 'flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-3.5 text-left shadow-[inset_0_0_0_1px_rgba(231,182,109,0.08)] transition hover:bg-white/[0.09]'
+              : 'flex w-full items-center gap-3 rounded-[1.35rem] border border-[#C3D0E8]/45 bg-transparent px-3.5 py-3.5 text-left transition hover:bg-white/[0.04]'
         }
       >
         {variant === 'avatar' ? (
@@ -463,7 +566,7 @@ function AccountMenu({
         <div
           role="menu"
           className={cn(
-            'absolute z-30 overflow-hidden rounded-xl border border-white/10 bg-[#12182e] py-1 shadow-[0_16px_40px_rgba(0,0,0,0.45)]',
+            'absolute z-30 overflow-hidden rounded-[1.35rem] border border-[#C3D0E8]/45 bg-[#03080b] py-1 shadow-[0_16px_40px_rgba(3,8,11,0.45)]',
             variant === 'avatar'
               ? 'top-[calc(100%+8px)] right-0 w-48'
               : 'right-0 bottom-[calc(100%+8px)] left-0 bg-[#121F46]',
@@ -505,7 +608,7 @@ function AccountMenu({
               void signOut().then(() => navigate('/'));
             }}
           >
-            <LogOut className="size-4 text-[#E7B66D]" strokeWidth={1.85} />
+            <LogOut className="size-4 text-[#C3D0E8]" strokeWidth={1.85} />
             Sign Out
           </button>
         </div>
@@ -523,18 +626,18 @@ function IdentityBlock({
 }) {
   return (
     <>
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#4A63BE]/25 text-[#E7B66D] ring-1 ring-[#E7B66D]/25">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-[#C3D0E8]/45 text-[#C3D0E8]">
         <ShieldUser className="size-5" strokeWidth={1.75} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-white">{title}</p>
+        <p className="truncate text-sm text-[#EEF4FF]">{title}</p>
         {subtitle ? (
-          <p className="truncate font-mono text-xs text-white/45" title={subtitle}>
+          <p className="truncate font-mono text-xs text-[#C3D0E8]/55" title={subtitle}>
             {subtitle}
           </p>
         ) : null}
       </div>
-      <ChevronsUpDown className="size-4 shrink-0 text-[#E7B66D]" strokeWidth={2} />
+      <ChevronsUpDown className="size-4 shrink-0 text-[#C3D0E8]" strokeWidth={2} />
     </>
   );
 }

@@ -1,39 +1,31 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { CreditCard, LayoutGrid, Settings } from 'lucide-react';
-
 import { useWalletSession } from '../context/WalletContext';
 import {
   getAccountKind,
   setAccountKind,
   type AccountKind,
 } from '../lib/account-kind';
-import { DashboardChrome } from './chrome';
+import { DashboardChrome, type BreadcrumbCrumb } from './chrome';
 import { HubBilling, HubSettingsPanel } from './hub-panels';
-import { HUB_TABS, isHubTab, type HubTab } from './hub-types';
+import { isHubTab, type HubTab } from './hub-types';
 import { WorkspaceWorkspaces } from './workspace-workspaces';
 import { KindGate } from './kind-gate';
 import { PersonalShell } from './personal-shell';
 import { PrivacyOnboardingGate } from './privacy-onboarding-gate';
-import { SETUP_PREVIEW_NAV } from './setup-nav';
+import { HUB_NAV } from './setup-nav';
 
-const TAB_ICONS = {
-  workspaces: LayoutGrid,
-  billing: CreditCard,
-  settings: Settings,
-} as const;
-
-const TAB_META: Record<HubTab, { breadcrumb: string; searchPlaceholder: string }> = {
+const TAB_META: Record<HubTab, { label: string; searchPlaceholder: string }> = {
   workspaces: {
-    breadcrumb: 'Account / Workspaces',
+    label: 'Workspaces',
     searchPlaceholder: 'Search workspaces...',
   },
   billing: {
-    breadcrumb: 'Account / Billing',
+    label: 'Billing',
     searchPlaceholder: 'Search billing',
   },
   settings: {
-    breadcrumb: 'Account / Settings',
+    label: 'Settings',
     searchPlaceholder: 'Search settings',
   },
 };
@@ -77,15 +69,7 @@ export function HubShell() {
     }
   }, [location.search, setSearchParams]);
 
-  useEffect(() => {
-    if (!session) return;
-    const urlTab = readTabFromUrl();
-    if (urlTab !== 'billing') return;
-    const stored = getAccountKind(session.wallet_address);
-    if (stored === 'business') return;
-    setAccountKind(session.wallet_address, 'business');
-    setKind('business');
-  }, [session?.wallet_address, location.search]);
+  const personalSpace = new URLSearchParams(location.search).get('space') === 'personal';
 
   const useWorkspaces = useCallback(() => {
     if (!session) return;
@@ -98,31 +82,25 @@ export function HubShell() {
   const usePersonal = useCallback(() => {
     if (!session) return;
     setAccountKind(session.wallet_address, 'individual');
-    const url = new URL(window.location.href);
-    url.searchParams.delete('tab');
-    window.history.replaceState(null, '', url.pathname + url.search);
     setKind('individual');
-  }, [session]);
+    navigate('/app?space=personal', { replace: true });
+  }, [session, navigate]);
 
   const selectTab = useCallback(
     (next: string) => {
-      if (!isHubTab(next)) return;
-      if (session && next === 'billing') {
-        setAccountKind(session.wallet_address, 'business');
-        setKind('business');
-      }
+      if (next !== 'billing' && next !== 'settings') return;
       setTab(next);
       setSearchParams(
         (current) => {
           const params = new URLSearchParams(current);
-          if (next === 'workspaces') params.delete('tab');
-          else params.set('tab', next);
+          params.delete('space');
+          params.set('tab', next);
           return params;
         },
         { replace: true },
       );
     },
-    [session, setSearchParams],
+    [setSearchParams],
   );
 
   if (!session) return null;
@@ -134,71 +112,56 @@ export function HubShell() {
     return (
       <DashboardChrome
         variant="canvas"
-        hideHeader
-        navItems={SETUP_PREVIEW_NAV}
+        navItems={HUB_NAV}
         activeId=""
         onSelect={() => undefined}
-        breadcrumb="Account / Setup"
+        breadcrumb={[{ label: 'App', onSelect: () => navigate('/app') }, { label: 'Setup' }]}
         searchPlaceholder="Search setup..."
         identity={{
           title: setupTitle,
           subtitle: session.handle ?? session.wallet_address,
         }}
       >
-        <KindGate
-          onChosen={setKind}
-          identityTitle={setupTitle}
-          searchPlaceholder="Search setup..."
-        />
+        <KindGate onChosen={setKind} />
       </DashboardChrome>
     );
   }
-  if (kind === 'individual') {
+  if (personalSpace) {
     return (
       <PrivacyOnboardingGate>
-        <PersonalShell onUseWorkspaces={useWorkspaces} />
+        <PersonalShell onUseWorkspaces={useWorkspaces} onGoApp={() => navigate('/app')} />
       </PrivacyOnboardingGate>
     );
   }
 
   const meta = TAB_META[tab];
-  const navItems = HUB_TABS.map((item) => ({
-    ...item,
-    icon: TAB_ICONS[item.id],
-  }));
-  const canvasTab = tab === 'workspaces';
-
+  const appCrumb: BreadcrumbCrumb = { label: 'App', onSelect: () => navigate('/app') };
+  const workspaceCrumb: BreadcrumbCrumb = { label: 'Workspace', onSelect: () => navigate('/app') };
+  const breadcrumb: BreadcrumbCrumb[] =
+    tab === 'workspaces'
+      ? [appCrumb, { label: 'Workspace' }]
+      : [appCrumb, workspaceCrumb, { label: meta.label }];
   return (
     <PrivacyOnboardingGate>
       <DashboardChrome
-        key={canvasTab ? 'canvas' : 'panel'}
-        navItems={navItems}
-        activeId={tab}
+        navItems={HUB_NAV}
+        activeId={tab === 'workspaces' ? '' : tab}
         onSelect={selectTab}
-        breadcrumb={meta.breadcrumb}
+        breadcrumb={breadcrumb}
         searchPlaceholder={meta.searchPlaceholder}
         identity={{
           title: displayName(session, 'Workspace'),
           subtitle: session.wallet_address,
         }}
         mode="workspaces"
-        variant={canvasTab ? 'canvas' : 'panel'}
-        hideHeader={canvasTab}
+        variant="canvas"
         onModeChange={(next) => {
           if (next === 'personal') usePersonal();
         }}
       >
         <>
           <TabPanel active={tab === 'workspaces'}>
-            <WorkspaceWorkspaces
-              currentWorkspaceId={session.business_id}
-              searchPlaceholder={meta.searchPlaceholder}
-              identityTitle={displayName(session, 'Workspace')}
-              breadcrumbVariant="account"
-              onModeChange={(next) => {
-                if (next === 'personal') usePersonal();
-              }}
-            />
+            <WorkspaceWorkspaces currentWorkspaceId={session.business_id} />
           </TabPanel>
           <TabPanel active={tab === 'billing'}>
             <HubBilling />

@@ -7,12 +7,8 @@ import { AccountKindSetup } from './account-kind-setup';
 
 export function KindGate({
   onChosen,
-  identityTitle,
-  searchPlaceholder = 'Search',
 }: {
   onChosen: (kind: AccountKind) => void;
-  identityTitle: string;
-  searchPlaceholder?: string;
 }) {
   const { session, refresh } = useWalletSession();
   const [selected, setSelected] = useState<AccountKind>('individual');
@@ -42,8 +38,6 @@ export function KindGate({
       onContinue={() => void confirm()}
       continueDisabled={!selected}
       continueBusy={busy}
-      identityTitle={identityTitle}
-      searchPlaceholder={searchPlaceholder}
     />
   );
 }

@@ -23,8 +23,6 @@ import {
   type ShieldKeys,
 } from '../lib/shield-keys';
 import { sessionApi } from '../lib/session';
-import type { WorkspaceView } from '../lib/workspaces';
-import { DashboardUtilities, type DashboardMode } from './chrome';
 import { cn } from './cn';
 
 function maskValue(value: string, start = 10, end = 4): string {
@@ -37,16 +35,8 @@ function withHexPrefix(value: string): string {
 }
 
 export function WorkspaceSettings({
-  workspace,
-  searchPlaceholder,
-  identityTitle,
-  onModeChange,
   onOpenCompliance,
 }: {
-  workspace: WorkspaceView;
-  searchPlaceholder: string;
-  identityTitle: string;
-  onModeChange?: (mode: DashboardMode) => void;
   onOpenCompliance?: () => void;
 }) {
   const { session, refresh } = useWalletSession();
@@ -138,32 +128,13 @@ export function WorkspaceSettings({
 
   return (
     <div className="dash-settings flex w-full flex-col gap-4 pb-6">
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-        <nav className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px] text-white/45">
-          <span className="text-white/55">{workspace.name}</span>
-          <ChevronRight className="size-3 text-white/30" strokeWidth={2} />
-          <span className="font-medium text-white/80">Settings</span>
-        </nav>
-        <div className="lg:justify-self-end">
-          <DashboardUtilities
-            searchPlaceholder={searchPlaceholder}
-            identityTitle={identityTitle}
-            mode="workspaces"
-            onModeChange={onModeChange}
-            density="regular"
-          />
-        </div>
-      </div>
-
       <div className="min-w-0">
-        <p className="text-[10px] font-semibold tracking-[0.16em] text-[#E7B66D] uppercase">
-          Settings
-        </p>
-        <h1 className="mt-1 text-[clamp(22px,2.6vw,30px)] font-semibold tracking-tight text-white">
+        <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">Settings</p>
+        <h1 className="dash-display mt-3 text-[clamp(2.2rem,4vw,3.2rem)] leading-[0.96] tracking-[-0.035em] text-[#EEF4FF]">
           Settings
         </h1>
-        <p className="mt-1.5 text-[13px] text-white/45">
-          Manage your workspace and security preferences.
+        <p className="mt-4 max-w-md text-sm leading-relaxed text-[#EEF4FF]/70">
+          Name, payout address, and the keys that spend or view this workspace.
         </p>
       </div>
 
@@ -181,9 +152,9 @@ export function WorkspaceSettings({
         </div>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] xl:items-start">
-        <div className="space-y-4">
-          <form className="ov-card p-4 sm:p-5" onSubmit={(event) => void onSave(event)}>
+      <div className="flex flex-col xl:flex-row">
+        <div className="flex min-w-0 flex-[1.2] flex-col">
+          <form className="ov-card" onSubmit={(event) => void onSave(event)}>
             <SettingsCardHeader
               icon={Wallet}
               title="Workspace"
@@ -206,7 +177,7 @@ export function WorkspaceSettings({
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#0a1426] px-3 text-sm text-white outline-none focus:border-white/25"
+                className="mt-2 h-11 w-full rounded-xl border border-[#C3D0E8]/35 bg-transparent px-3 text-sm text-[#EEF4FF] outline-none focus:border-[#C3D0E8]/70"
               />
             </label>
 
@@ -219,7 +190,7 @@ export function WorkspaceSettings({
                   value={payout}
                   onChange={(event) => setPayout(event.target.value)}
                   spellCheck={false}
-                  className="h-11 w-full rounded-xl border border-white/10 bg-[#0a1426] pr-11 pl-3 font-mono text-sm text-white outline-none focus:border-white/25"
+                  className="h-11 w-full rounded-xl border border-[#C3D0E8]/35 bg-transparent pr-11 pl-3 font-mono text-sm text-[#EEF4FF] outline-none focus:border-[#C3D0E8]/70"
                 />
                 <button
                   type="button"
@@ -232,8 +203,8 @@ export function WorkspaceSettings({
               </div>
             </label>
 
-            <div className="mt-4 flex items-start gap-2 rounded-xl border border-[#4A63BE]/25 bg-[#4A63BE]/10 px-3 py-2.5">
-              <Info className="mt-0.5 size-4 shrink-0 text-[#9BB6FF]" strokeWidth={1.75} />
+            <div className="mt-4 flex items-start gap-2 rounded-xl border border-[#C3D0E8]/35 px-3 py-2.5">
+              <Info className="mt-0.5 size-4 shrink-0 text-[#c9b56a]" strokeWidth={1.75} />
               <p className="text-xs leading-relaxed text-white/55">
                 Used by default for withdrawals. You can use different addresses per payment.
               </p>
@@ -243,7 +214,7 @@ export function WorkspaceSettings({
             ) : null}
           </form>
 
-          <section className="ov-card p-4 sm:p-5">
+          <section className="ov-card z-10 -mt-px">
             <SettingsCardHeader
               icon={KeyRound}
               title="Shield Keys"
@@ -253,7 +224,7 @@ export function WorkspaceSettings({
                   type="button"
                   disabled={busy}
                   onClick={() => void generateKeys()}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#F3D28F]/50 bg-[#E7B66D]/15 px-3 text-[11px] font-semibold text-[#F3D28F] transition hover:bg-[#E7B66D]/25 disabled:opacity-50"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#ffe500] px-3 text-[12px] font-medium text-[#14110e] transition hover:bg-[#fff36a] disabled:opacity-50"
                 >
                   <KeyRound className="size-3.5" strokeWidth={1.85} />
                   Generate keys
@@ -346,8 +317,8 @@ export function WorkspaceSettings({
           </section>
         </div>
 
-        <div className="space-y-4">
-          <section className="ov-card p-4 sm:p-5">
+        <div className="z-10 -mt-px flex min-w-0 flex-1 flex-col xl:mt-0 xl:-ml-px">
+          <section className="ov-card">
             <SettingsCardHeader
               icon={Shield}
               title="Security"
@@ -375,7 +346,7 @@ export function WorkspaceSettings({
             ) : null}
           </section>
 
-          <section className="ov-card p-4 sm:p-5">
+          <section className="ov-card z-10 -mt-px">
             <SettingsCardHeader
               icon={BookOpen}
               title="Learn more"
@@ -409,7 +380,7 @@ function SettingsCardHeader({
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="flex min-w-0 items-start gap-3">
-        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#E7B66D]/35 bg-[#E7B66D]/10 text-[#F3D28F]">
+        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#C3D0E8]/35 text-[#c9b56a]">
           <Icon className="size-4" strokeWidth={1.75} />
         </span>
         <div className="min-w-0">
@@ -456,8 +427,8 @@ function KeyRow({
         className={cn(
           'rounded-full px-2 py-0.5 text-[10px] font-medium',
           tagTone === 'gold'
-            ? 'border border-[#E7B66D]/35 bg-[#E7B66D]/10 text-[#F3D28F]'
-            : 'border border-[#4A63BE]/35 bg-[#4A63BE]/10 text-[#9BB6FF]',
+            ? 'border border-[#c9b56a]/40 text-[#c9b56a]'
+            : 'border border-[#C3D0E8]/35 text-[#C3D0E8]',
         )}
       >
         {tag}
@@ -491,7 +462,7 @@ function SecurityRow({
       <button
         type="button"
         onClick={onClick}
-        className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-[#0a1426]/60 px-3 py-2.5 text-left transition hover:border-white/20"
+        className="flex w-full items-center gap-3 rounded-xl border border-[#C3D0E8]/35 px-3 py-2.5 text-left transition hover:border-[#C3D0E8]/55"
       >
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-medium text-white">{title}</span>

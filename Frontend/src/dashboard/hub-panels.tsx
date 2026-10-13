@@ -5,6 +5,10 @@ import { useWalletSession } from '../context/WalletContext';
 import { ApiError } from '../lib/http';
 import { sessionApi } from '../lib/session';
 import { shortenAddress } from '../lib/phantom';
+import {
+  canAccessWorkspaces,
+  subscribeToWorkspace,
+} from '../lib/workspace-subscription';
 import { AuditorPage } from './auditor-page';
 
 export function HubAudit() {
@@ -12,22 +16,42 @@ export function HubAudit() {
 }
 
 export function HubBilling() {
+  const { session } = useWalletSession();
+  const [subscribed, setSubscribed] = useState(() =>
+    session ? canAccessWorkspaces(session) : false,
+  );
+
   return (
     <div className="max-w-2xl">
-      <p className="text-[11px] font-semibold tracking-[0.16em] text-[#C9A46A] uppercase">
+      <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">
         Account
       </p>
-      <h1 className="mt-2 text-[28px] font-semibold tracking-tight text-slate-950">
+      <h1 className="dash-display mt-3 text-[clamp(2.2rem,4vw,3.2rem)] leading-[0.96] text-[#EEF4FF]">
         Billing & Plans
       </h1>
-      <div className="mt-6 rounded-2xl border border-[#E7B66D]/35 bg-[#F8F0E2]/70 p-6">
-        <p className="text-sm font-semibold text-slate-900">Starter</p>
-        <p className="mt-1 text-sm text-slate-500">
-          Private USDC collection on Solana. Plans and seats come later.
+      <div className="ov-card mt-6">
+        <p className="dash-display text-[1.6rem] text-[#EEF4FF]">Workspace</p>
+        <p className="mt-3 text-sm leading-relaxed text-[#C3D0E8]/55">
+          Personal payments stay open. A workspace subscription unlocks overview, payments, treasury, and developer tools.
         </p>
-        <span className="mt-4 inline-flex rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-[#0F1939]">
-          Coming soon
-        </span>
+        {subscribed ? (
+          <span className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#C3D0E8]/45 px-3 py-1 text-[11px] tracking-[0.14em] text-[#C3D0E8] uppercase">
+            <span className="size-1.5 rounded-full bg-[#ffe500]" />
+            Subscribed
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="mt-5 inline-flex h-11 items-center rounded-full bg-[#ffe500] px-5 text-sm text-[#14110e]"
+            onClick={() => {
+              if (!session) return;
+              subscribeToWorkspace(session.wallet_address);
+              setSubscribed(true);
+            }}
+          >
+            Subscribe
+          </button>
+        )}
       </div>
     </div>
   );
@@ -61,22 +85,22 @@ export function HubSettingsPanel() {
 
   return (
     <div className="max-w-xl">
-      <p className="text-[11px] font-semibold tracking-[0.16em] text-[#C9A46A] uppercase">
+      <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">
         Account
       </p>
-      <h1 className="mt-2 text-[28px] font-semibold tracking-tight text-slate-950">
+      <h1 className="dash-display mt-3 text-[clamp(2.2rem,4vw,3.2rem)] leading-[0.96] text-[#EEF4FF]">
         Settings
       </h1>
-      <form className="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-6" onSubmit={(event) => void onSave(event)}>
+      <form className="ov-card mt-6 space-y-4" onSubmit={(event) => void onSave(event)}>
         <label className="block">
-          <span className="text-sm font-semibold text-slate-900">Display name</span>
+          <span className="text-sm text-[#EEF4FF]">Display name</span>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            className="mt-2 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-[#4A63BE]"
+            className="mt-2 h-11 w-full rounded-xl border border-[#C3D0E8]/35 bg-transparent px-3 text-sm text-[#EEF4FF] outline-none focus:border-[#C3D0E8]/70"
           />
         </label>
-        <p className="font-mono text-xs text-slate-500">
+        <p className="font-mono text-xs text-[#C3D0E8]/55">
           {session.handle ?? 'pending'} · {shortenAddress(session.wallet_address)}
         </p>
         {error ? <p className="text-sm text-rose-600">{error}</p> : null}
@@ -85,7 +109,7 @@ export function HubSettingsPanel() {
           <button
             type="submit"
             disabled={busy}
-            className="inline-flex h-10 items-center rounded-xl bg-gradient-to-r from-[#121F46] to-[#4A63BE] px-4 text-sm font-semibold text-white"
+            className="inline-flex h-10 items-center rounded-full bg-[#ffe500] px-4 text-sm text-[#14110e]"
           >
             {busy ? 'Saving…' : 'Save'}
           </button>
@@ -94,7 +118,7 @@ export function HubSettingsPanel() {
             onClick={() => {
               void signOut().then(() => navigate('/'));
             }}
-            className="inline-flex h-10 items-center rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-600"
+            className="inline-flex h-10 items-center rounded-full border border-[#C3D0E8]/45 px-4 text-sm text-[#EEF4FF]"
           >
             Disconnect
           </button>

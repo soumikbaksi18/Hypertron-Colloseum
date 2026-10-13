@@ -1,13 +1,4 @@
 import { startTransition, useCallback, useEffect, useState } from 'react';
-import {
-  BriefcaseBusiness,
-  Code2,
-  Landmark,
-  LayoutGrid,
-  Receipt,
-  Settings,
-  ShieldCheck,
-} from 'lucide-react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
 
@@ -16,27 +7,18 @@ import { WorkspaceTreasury } from './workspace-treasury';
 import { WorkspaceDevelopers } from './workspace-developers';
 import { WorkspaceCompliance } from './workspace-compliance';
 import { WorkspaceSettings } from './workspace-settings';
-import { WorkspaceWorkspaces } from './workspace-workspaces';
 import { useWalletSession } from '../context/WalletContext';
 import { setAccountKind } from '../lib/account-kind';
+import { canAccessWorkspaces } from '../lib/workspace-subscription';
 import { getWorkspace, touchWorkspace } from '../lib/workspaces';
-import { DashboardChrome } from './chrome';
+import { DashboardChrome, type BreadcrumbCrumb } from './chrome';
 import { PrivacyOnboardingGate } from './privacy-onboarding-gate';
+import { APP_NAV } from './setup-nav';
 import { WorkspaceOverview } from './workspace-overview';
 import {
   isWorkspaceTab,
   type WorkspaceTab,
 } from './workspace-types';
-
-const WORKSPACE_NAV = [
-  { id: 'overview', label: 'Overview', icon: LayoutGrid },
-  { id: 'payments', label: 'Payments', icon: Receipt },
-  { id: 'treasury', label: 'Treasury', icon: Landmark },
-  { id: 'developers', label: 'Developers', icon: Code2 },
-  { id: 'compliance', label: 'Compliance', icon: ShieldCheck },
-  { id: 'workspaces', label: 'Workspaces', icon: BriefcaseBusiness },
-  { id: 'settings', label: 'Settings', icon: Settings, dividerBefore: true },
-] as const;
 
 const TAB_META: Record<WorkspaceTab, { label: string; searchPlaceholder: string }> = {
   overview: { label: 'Overview', searchPlaceholder: 'Search payments, contacts...' },
@@ -80,19 +62,31 @@ export function WorkspaceShell() {
 
   const selectWorkspaceNav = useCallback(
     (next: string) => {
+      if (next === 'billing') {
+        navigate('/app?tab=billing');
+        return;
+      }
+      if (next === 'workspaces') {
+        navigate('/app');
+        return;
+      }
       if (next === 'compliance') {
         selectTab('auditor');
         return;
       }
       if (isWorkspaceTab(next)) selectTab(next);
     },
-    [selectTab],
+    [navigate, selectTab],
   );
 
   const switchMode = useCallback(
     (next: 'personal' | 'workspaces') => {
       if (!session) return;
-      if (next === 'personal') setAccountKind(session.wallet_address, 'individual');
+      if (next === 'personal') {
+        setAccountKind(session.wallet_address, 'individual');
+        navigate('/app?space=personal');
+        return;
+      }
       navigate('/app');
     },
     [navigate, session],
@@ -102,18 +96,31 @@ export function WorkspaceShell() {
 
   const workspace = getWorkspace(session, workspaceId);
   if (!workspace) return <Navigate to="/app" replace />;
+  if (!canAccessWorkspaces(session)) {
+    return <Navigate to="/app?tab=billing" replace />;
+  }
+  if (tab === 'workspaces') return <Navigate to="/app" replace />;
 
   const meta = TAB_META[tab];
-  const navItems = [...WORKSPACE_NAV];
   const activeNavId = tab === 'auditor' ? 'compliance' : tab;
+  const appCrumb: BreadcrumbCrumb = { label: 'App', onSelect: () => navigate('/app') };
+  const workspaceCrumb: BreadcrumbCrumb = {
+    label: workspace.name,
+    onSelect: () => selectTab('overview'),
+  };
+  const sectionLabel = tab === 'auditor' ? 'Compliance' : meta.label;
+  const breadcrumb: BreadcrumbCrumb[] =
+    tab === 'overview'
+      ? [appCrumb, { label: workspace.name }]
+      : [appCrumb, workspaceCrumb, { label: sectionLabel }];
 
   return (
     <PrivacyOnboardingGate>
     <DashboardChrome
-      navItems={navItems}
+      navItems={APP_NAV}
       activeId={activeNavId}
       onSelect={selectWorkspaceNav}
-      breadcrumb={`${workspace.name} / ${meta.label}`}
+      breadcrumb={breadcrumb}
       searchPlaceholder={meta.searchPlaceholder}
       identity={{
         title: session.name.trim() || workspace.name,
@@ -121,70 +128,24 @@ export function WorkspaceShell() {
       }}
       mode="workspaces"
       variant="canvas"
-      overviewScaled={tab === 'overview'}
-      hideHeader={
-        tab === 'overview' ||
-        tab === 'payments' ||
-        tab === 'treasury' ||
-        tab === 'developers' ||
-        tab === 'auditor' ||
-        tab === 'settings' ||
-        tab === 'workspaces'
-      }
       onModeChange={switchMode}
     >
       {tab === 'overview' ? (
         <WorkspaceOverview
           workspace={workspace}
-          searchPlaceholder={meta.searchPlaceholder}
-          identityTitle={session.name.trim() || workspace.name}
           onCreatePaymentLink={() => selectTab('payments')}
           onViewAllPayments={() => selectTab('payments')}
-          onModeChange={switchMode}
         />
       ) : tab === 'payments' ? (
-        <WorkspacePayments
-          workspace={workspace}
-          searchPlaceholder={meta.searchPlaceholder}
-          identityTitle={session.name.trim() || workspace.name}
-          onModeChange={switchMode}
-        />
+        <WorkspacePayments workspace={workspace} />
       ) : tab === 'treasury' ? (
-        <WorkspaceTreasury
-          workspace={workspace}
-          searchPlaceholder={meta.searchPlaceholder}
-          identityTitle={session.name.trim() || workspace.name}
-          onModeChange={switchMode}
-        />
+        <WorkspaceTreasury />
       ) : tab === 'developers' ? (
-        <WorkspaceDevelopers
-          workspace={workspace}
-          searchPlaceholder={meta.searchPlaceholder}
-          identityTitle={session.name.trim() || workspace.name}
-          onModeChange={switchMode}
-        />
+        <WorkspaceDevelopers />
       ) : tab === 'auditor' ? (
-        <WorkspaceCompliance
-          workspace={workspace}
-          searchPlaceholder={meta.searchPlaceholder}
-          identityTitle={session.name.trim() || workspace.name}
-          onModeChange={switchMode}
-        />
-      ) : tab === 'workspaces' ? (
-        <WorkspaceWorkspaces
-          currentWorkspaceId={workspaceId}
-          searchPlaceholder={meta.searchPlaceholder}
-          identityTitle={session.name.trim() || workspace.name}
-          onModeChange={switchMode}
-        />
+        <WorkspaceCompliance />
       ) : tab === 'settings' ? (
-        <WorkspaceSettings
-          workspace={workspace}
-          searchPlaceholder={meta.searchPlaceholder}
-          identityTitle={session.name.trim() || workspace.name}
-          onModeChange={switchMode}
-          onOpenCompliance={() => selectTab('auditor')}
-        />
+        <WorkspaceSettings onOpenCompliance={() => selectTab('auditor')} />
       ) : null}
     </DashboardChrome>
     </PrivacyOnboardingGate>

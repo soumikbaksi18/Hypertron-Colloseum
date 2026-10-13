@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useId,
   useMemo,
   useRef,
   useState,
@@ -19,7 +18,6 @@ import {
   LockKeyhole,
   Loader2,
   Maximize2,
-  MoreHorizontal,
   Percent,
   Plus,
   RefreshCw,
@@ -33,7 +31,7 @@ import {
   type OverviewStats,
 } from '../lib/overview-stats';
 import type { WorkspaceView } from '../lib/workspaces';
-import { DashboardUtilities, type DashboardMode } from './chrome';
+import { buildPulse, PulseChart } from './pulse-chart';
 
 type PulseMode = 'volume' | 'payments';
 type DateRange = '7d' | '30d' | '90d';
@@ -44,11 +42,6 @@ const DATE_RANGE_LABEL: Record<DateRange, string> = {
   '30d': 'Last 30 days',
   '90d': 'Last 90 days',
 };
-
-const PULSE_VOLUME =
-  'M8 98 C52 92 78 70 118 64 C168 56 188 88 232 76 C286 60 314 32 362 38 C412 44 438 76 486 64 C528 54 548 34 568 26';
-const PULSE_PAYMENTS =
-  'M8 88 C46 84 74 96 118 78 C162 60 196 46 236 58 C286 74 320 96 368 82 C418 68 452 40 500 48 C534 54 552 36 568 26';
 
 const EMPTY_STATS: OverviewStats = {
   availableBalance: '0 USDC',
@@ -76,47 +69,31 @@ const EMPTY_STATS: OverviewStats = {
   attention: [],
   recentPayments: [],
   paymentLinks: [],
+  activity: [],
 };
-
-function pulseLabels(range: DateRange) {
-  const count = range === '7d' ? 7 : 6;
-  const span = range === '7d' ? 6 : range === '30d' ? 29 : 89;
-  const end = new Date();
-  return Array.from({ length: count }, (_, index) => {
-    const day = new Date(end);
-    day.setDate(end.getDate() - Math.round((span * (count - 1 - index)) / (count - 1)));
-    return day
-      .toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      .toUpperCase();
-  });
-}
 
 export function WorkspaceOverview({
   workspace,
-  searchPlaceholder,
-  identityTitle,
   onCreatePaymentLink,
   onViewAllPayments,
-  onModeChange,
 }: {
   workspace: WorkspaceView;
-  searchPlaceholder: string;
-  identityTitle: string;
   onCreatePaymentLink?: () => void;
   onViewAllPayments?: () => void;
-  onModeChange?: (mode: DashboardMode) => void;
 }) {
   const { session } = useWalletSession();
   const [dateRange, setDateRange] = useState<DateRange>('7d');
   const [rangeOpen, setRangeOpen] = useState(false);
   const [pulseMode, setPulseMode] = useState<PulseMode>('volume');
   const [pulseTall, setPulseTall] = useState(false);
-  const [openDeck, setOpenDeck] = useState<DeckId | null>(null);
+  const [openDeck, setOpenDeck] = useState<Record<DeckId, boolean>>({
+    payout: true,
+    mix: true,
+    funnel: true,
+  });
   const [stats, setStats] = useState<OverviewStats>(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
   const rangeRef = useRef<HTMLDivElement>(null);
-  const pulseId = useId().replace(/[^a-zA-Z0-9]/g, '');
-
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
@@ -143,8 +120,16 @@ export function WorkspaceOverview({
 
   const firstName =
     (session?.name || workspace.name || '').trim().split(/\s+/)[0] || 'there';
-  const labels = useMemo(() => pulseLabels(dateRange), [dateRange]);
-  const pulsePath = pulseMode === 'volume' ? PULSE_VOLUME : PULSE_PAYMENTS;
+  const pulsePoints = useMemo(
+    () => buildPulse(stats.activity, dateRange, pulseMode),
+    [stats.activity, dateRange, pulseMode],
+  );
+  const pulseTotal = pulsePoints.reduce((sum, point) => sum + point.value, 0);
+  const pulseHeadline =
+    pulseMode === 'volume'
+      ? `${pulseTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`
+      : String(pulseTotal);
+  const pulseDelta = pulseTotal === 0 ? 'No activity' : pulseMode === 'volume' ? 'Settled in range' : 'Links in range';
 
   const metrics = useMemo(
     () => [
@@ -160,8 +145,8 @@ export function WorkspaceOverview({
         label: 'Pending Volume',
         value: loading ? '…' : stats.pendingVolume,
         caption: `${stats.pendingCount} payment${stats.pendingCount === 1 ? '' : 's'} processing`,
-        dot: 'bg-[#E7B66D]',
-        text: 'text-[#E7B66D]',
+        dot: 'bg-[#c9b56a]',
+        text: 'text-[#c9b56a]',
         icon: Clock3,
       },
       {
@@ -175,7 +160,10 @@ export function WorkspaceOverview({
       {
         label: 'Success Rate',
         value: loading ? '…' : stats.successRate,
-        caption: 'Healthy performance',
+        caption:
+          stats.successRate === '0%' || stats.successRate === '—'
+            ? 'No settled payments yet'
+            : 'Share of links that settled',
         dot: 'bg-emerald-400',
         text: 'text-emerald-400',
         icon: Percent,
@@ -187,24 +175,11 @@ export function WorkspaceOverview({
   return (
     <div className="dash-overview flex w-full flex-col gap-3.5 sm:gap-4">
       <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-        <p className="pt-0.5 text-[9px] font-semibold tracking-[0.28em] text-[#8EA2C4] uppercase">
-          Dashboard
-        </p>
-        <div className="lg:justify-self-end">
-          <DashboardUtilities
-            searchPlaceholder={searchPlaceholder}
-            identityTitle={identityTitle}
-            mode="workspaces"
-            onModeChange={onModeChange}
-            showAccount={false}
-          />
-        </div>
-
         <div className="min-w-0">
-          <h1 className="dash-pixel text-[clamp(28px,3.4vw,40px)] leading-none text-white">
+          <h1 className="dash-display text-[clamp(2.4rem,4vw,3.4rem)] leading-[0.96] tracking-[-0.035em] text-[#EEF4FF]">
             Hello {firstName},
           </h1>
-          <p className="mt-2 text-[11px] text-[#A8B3C9]">
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-[#EEF4FF]/70">
             Your private payments on Solana.
           </p>
         </div>
@@ -214,14 +189,14 @@ export function WorkspaceOverview({
             <button
               type="button"
               onClick={() => setRangeOpen((open) => !open)}
-              className="inline-flex h-8 items-center gap-2 rounded-lg border border-white/10 bg-[#0c1629] px-3 text-[9px] font-medium text-white/80 transition hover:border-white/20"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#C3D0E8]/35 bg-transparent px-3 text-sm text-[#EEF4FF] transition hover:border-[#C3D0E8]/55"
             >
               <Calendar className="size-3 text-white/55" strokeWidth={1.8} />
               {DATE_RANGE_LABEL[dateRange]}
               <ChevronDown className="size-3 text-white/40" />
             </button>
             {rangeOpen ? (
-              <div className="absolute top-[calc(100%+6px)] right-0 z-20 min-w-[168px] overflow-hidden rounded-xl border border-white/10 bg-[#10182e] py-1 shadow-[0_16px_40px_rgba(0,0,0,0.45)]">
+              <div className="absolute top-[calc(100%+6px)] right-0 z-20 min-w-[168px] overflow-hidden rounded-xl border border-[#C3D0E8]/35 bg-[#03080b] py-1 shadow-[0_16px_40px_rgba(0,0,0,0.45)]">
                 {(Object.keys(DATE_RANGE_LABEL) as DateRange[]).map((key) => (
                   <button
                     key={key}
@@ -246,7 +221,7 @@ export function WorkspaceOverview({
           <button
             type="button"
             onClick={onCreatePaymentLink}
-            className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#F3D28F] bg-[#E7B66D] px-4 text-[9px] font-semibold text-[#1A1408] transition hover:bg-[#F0C77E]"
+            className="inline-flex h-10 items-center gap-2 rounded-full bg-[#ffe500] px-4 text-sm font-medium text-[#14110e] transition hover:bg-[#fff36a]"
           >
             <Plus className="size-3.5" strokeWidth={2.1} />
             Create Payment Link
@@ -254,16 +229,17 @@ export function WorkspaceOverview({
         </div>
       </div>
 
-      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-        {metrics.map((metric) => (
-          <MetricCard key={metric.label} {...metric} />
+      <div className="flex w-full flex-col">
+      <div className="flex flex-col lg:flex-row">
+        {metrics.map((metric, index) => (
+          <MetricCard key={metric.label} join={index > 0} {...metric} />
         ))}
       </div>
 
-      <div className="grid gap-3.5 lg:h-[190px] lg:grid-cols-[minmax(0,1.7fr)_minmax(230px,0.72fr)] lg:items-stretch">
-        <section className="ov-card overflow-hidden p-4">
+      <div className="z-10 -mt-px flex flex-col lg:flex-row">
+        <section className="ov-card min-h-[280px] min-w-0 flex-[1.65] overflow-hidden">
           <div className="flex items-start justify-between gap-3">
-            <p className="text-[7px] font-semibold tracking-[0.16em] text-white/40 uppercase">
+            <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">
               Payment Pulse
             </p>
             <button
@@ -271,7 +247,7 @@ export function WorkspaceOverview({
               aria-label={pulseTall ? 'Collapse chart' : 'Expand chart'}
               aria-pressed={pulseTall}
               onClick={() => setPulseTall((tall) => !tall)}
-              className="inline-flex size-6 items-center justify-center rounded-md border border-white/10 bg-white/[0.03] text-white/50 transition hover:text-white"
+              className="inline-flex size-6 items-center justify-center rounded-md border border-[#C3D0E8]/35 bg-white/[0.03] text-white/50 transition hover:text-white"
             >
               <Maximize2 className="size-3" strokeWidth={1.8} />
             </button>
@@ -279,13 +255,13 @@ export function WorkspaceOverview({
           <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <p className="text-[23px] leading-none font-medium tracking-tight text-white">
-                {loading ? '…' : stats.collected}
+                {loading ? '…' : pulseHeadline}
               </p>
-              <span className="inline-flex items-center rounded-md border border-emerald-300/10 bg-emerald-400/[0.06] px-2 py-1 text-[8px] font-medium text-emerald-200/70">
-                {loading ? '…' : stats.collectedDelta}
+              <span className="inline-flex items-center rounded-md border border-emerald-300/10 bg-emerald-400/[0.06] px-2 py-1 text-xs font-medium text-emerald-200/70">
+                {loading ? '…' : pulseDelta}
               </span>
             </div>
-            <div className="inline-flex items-center gap-0.5 rounded-full bg-black/20 p-0.5 ring-1 ring-white/10">
+            <div className="inline-flex items-center gap-0.5 rounded-xl border border-[#C3D0E8]/35 p-1">
               {(
                 [
                   ['volume', 'Volume'],
@@ -296,9 +272,9 @@ export function WorkspaceOverview({
                   key={id}
                   type="button"
                   onClick={() => setPulseMode(id)}
-                  className={`rounded-full px-3 py-1 text-[8px] font-medium transition ${
+                  className={`rounded-lg px-3 py-1.5 text-xs transition ${
                     pulseMode === id
-                      ? 'bg-[#2C4A93] text-white shadow-[inset_0_0_0_1px_rgba(150,176,255,0.35)]'
+                      ? 'bg-white/[0.08] text-[#EEF4FF]'
                       : 'text-white/50 hover:text-white'
                   }`}
                 >
@@ -308,63 +284,21 @@ export function WorkspaceOverview({
             </div>
           </div>
           <div className="ov-chart-grid relative mt-2">
-            <svg
-              viewBox="0 0 580 120"
-              className={`w-full ${pulseTall ? 'h-[172px]' : 'h-[76px]'}`}
-              preserveAspectRatio="none"
-              aria-hidden
-            >
-              <defs>
-                <linearGradient id={`${pulseId}-fill`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#7BA0FF" stopOpacity="0.28" />
-                  <stop offset="55%" stopColor="#E7B66D" stopOpacity="0.08" />
-                  <stop offset="100%" stopColor="#E7B66D" stopOpacity="0" />
-                </linearGradient>
-                <linearGradient id={`${pulseId}-stroke`} x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#6E94F0" />
-                  <stop offset="62%" stopColor="#8FB0FF" />
-                  <stop offset="100%" stopColor="#E7B66D" />
-                </linearGradient>
-              </defs>
-              {[34, 64, 94].map((y) => (
-                <line
-                  key={y}
-                  x1="0"
-                  y1={y}
-                  x2="580"
-                  y2={y}
-                  stroke="rgba(255,255,255,0.06)"
-                />
-              ))}
-              <path d={`${pulsePath} L568 120 L8 120 Z`} fill={`url(#${pulseId}-fill)`} />
-              <path
-                d={pulsePath}
-                fill="none"
-                stroke={`url(#${pulseId}-stroke)`}
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-            </svg>
-            <span className="pointer-events-none absolute top-[18%] right-0 size-2 rounded-full bg-[#F6E2B8]" />
-          </div>
-          <div className="mt-1 flex justify-between gap-2 px-0.5 text-[7px] tracking-[0.08em] text-white/35">
-            {labels.map((label, index) => (
-              <span key={`${label}-${index}`}>{label}</span>
-            ))}
+            <PulseChart points={pulsePoints} tall={pulseTall} />
           </div>
         </section>
 
-        <div className="grid gap-3.5 lg:grid-rows-[82px_94px]">
-          <section className="ov-card overflow-hidden p-3.5">
+        <div className="z-10 flex min-w-0 flex-1 flex-col lg:-ml-px">
+          <section className="ov-card min-h-[148px] flex-1 overflow-hidden">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[7px] font-semibold tracking-[0.16em] text-white/40 uppercase">
+                <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">
                   Active Payment Links
                 </p>
                 <p className="mt-2 text-[21px] leading-none font-medium tracking-tight text-white">
                   {loading ? '…' : stats.activeLinks}
                 </p>
-                <p className="mt-2 inline-flex items-center gap-1.5 text-[8px] font-medium text-[#9BB6FF]">
+                <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[#9BB6FF]">
                   <span className="size-1.5 rounded-full bg-[#7EB6FF]" />
                   {stats.collectingToday} collecting today
                 </p>
@@ -375,10 +309,10 @@ export function WorkspaceOverview({
             </div>
           </section>
 
-          <section className="ov-card overflow-hidden p-3">
+          <section className="ov-card z-10 -mt-px min-h-[168px] flex-1 overflow-hidden">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[7px] font-semibold tracking-[0.16em] text-white/40 uppercase">
+                <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">
                   Needs Attention
                 </p>
                 <p className="mt-1.5 text-[10px] text-white/80">
@@ -408,7 +342,7 @@ export function WorkspaceOverview({
               )}
               <div className="flex items-start gap-2 rounded-lg border border-white/8 bg-black/15 px-2.5 py-2">
                 <CheckCircle2 className="mt-px size-3.5 shrink-0 text-emerald-300" />
-                <p className="text-[8px] leading-[1.35] text-emerald-100/75">
+                <p className="text-xs leading-[1.35] text-emerald-100/75">
                   Everything else is on track. Payment rails are operating normally.
                 </p>
               </div>
@@ -417,19 +351,19 @@ export function WorkspaceOverview({
         </div>
       </div>
 
-      <div className="grid gap-3.5 lg:h-[115px] lg:grid-cols-[minmax(0,1.7fr)_minmax(230px,0.72fr)]">
-        <section className="ov-card overflow-hidden p-3">
+      <div className="z-10 -mt-px flex flex-col lg:flex-row">
+        <section className="ov-card min-h-[200px] min-w-0 flex-[1.65] overflow-hidden">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[7px] font-semibold tracking-[0.16em] text-white/40 uppercase">
+              <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">
                 Recent Payments
               </p>
-              <p className="mt-1 text-[8px] text-white/45">Latest settlement activity</p>
+              <p className="mt-1 text-xs text-white/45">Latest settlement activity</p>
             </div>
             <button
               type="button"
               onClick={onViewAllPayments}
-              className="inline-flex items-center gap-1 text-[8px] font-medium text-[#9BB6FF] hover:text-white"
+              className="inline-flex items-center gap-1 text-xs font-medium text-[#9BB6FF] hover:text-white"
             >
               View all
               <ArrowUpRight className="size-3.5" />
@@ -441,7 +375,7 @@ export function WorkspaceOverview({
               Loading payments…
             </p>
           ) : stats.recentPayments.length === 0 ? (
-            <p className="mt-4 rounded-xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-white/40">
+            <p className="mt-4 rounded-xl border border-dashed border-[#C3D0E8]/35 px-4 py-8 text-center text-sm text-white/40">
               No payment links yet. Create one to see activity here.
             </p>
           ) : (
@@ -449,36 +383,35 @@ export function WorkspaceOverview({
               {stats.recentPayments.map((payment) => (
                 <div
                   key={payment.id}
-                  className="grid grid-cols-1 items-center gap-2 rounded-lg border border-white/8 bg-white/[0.025] px-2.5 py-2 md:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_auto_auto_16px]"
+                  className="grid grid-cols-1 items-center gap-2 rounded-lg border border-white/8 bg-white/[0.025] px-3 py-2.5 md:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_auto_auto]"
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[#24345F] text-[8px] font-semibold text-[#B7D0FF]">
+                    <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[#24345F] text-xs font-semibold text-[#B7D0FF]">
                       {payment.initials}
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-[9px] font-medium text-white">{payment.payer}</p>
-                      <p className="truncate text-[7px] text-white/40">{payment.handle}</p>
+                      <p className="truncate text-sm font-medium text-white">{payment.payer}</p>
+                      <p className="truncate text-xs text-white/40">{payment.handle}</p>
                     </div>
                   </div>
-                  <span className="truncate text-[8px] text-white/55">{payment.purpose}</span>
+                  <span className="truncate text-xs text-white/55">{payment.purpose}</span>
                   <StatusPill status={payment.status} />
-                  <span className="text-[9px] font-medium text-white">{payment.amount}</span>
-                  <MoreHorizontal className="size-4 text-white/35" aria-hidden />
+                  <span className="text-sm font-medium text-white">{payment.amount}</span>
                 </div>
               ))}
             </div>
           )}
         </section>
 
-        <section className="ov-card overflow-hidden p-3">
+        <section className="ov-card z-10 min-h-[200px] min-w-0 flex-1 overflow-hidden lg:-ml-px">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[7px] font-semibold tracking-[0.16em] text-white/40 uppercase">
+            <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">
               Payment Links
             </p>
             <button
               type="button"
               onClick={onViewAllPayments}
-              className="inline-flex items-center gap-1 text-[8px] font-medium text-[#9BB6FF] hover:text-white"
+              className="inline-flex items-center gap-1 text-xs font-medium text-[#9BB6FF] hover:text-white"
             >
               Manage
               <ArrowUpRight className="size-3.5" />
@@ -491,7 +424,7 @@ export function WorkspaceOverview({
                 Loading links…
               </p>
             ) : stats.paymentLinks.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-white/10 px-3 py-6 text-center text-sm text-white/40">
+              <p className="rounded-xl border border-dashed border-[#C3D0E8]/35 px-3 py-6 text-center text-sm text-white/40">
                 No payment links yet.
               </p>
             ) : (
@@ -502,24 +435,23 @@ export function WorkspaceOverview({
                     key={link.id}
                     className="flex items-center gap-2 rounded-lg border border-white/8 bg-white/[0.025] px-2 py-1.5"
                   >
-                    <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.04] text-[#E7B66D]">
+                    <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-[#C3D0E8]/35 bg-white/[0.04] text-[#c9b56a]">
                       <CreditCard className="size-3.5" strokeWidth={1.8} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[9px] font-medium text-white">{link.name}</p>
+                      <p className="truncate text-sm font-medium text-white">{link.name}</p>
                       <p
-                        className={`mt-0.5 inline-flex items-center gap-1.5 text-[7px] ${
-                          waiting ? 'text-[#E7B66D]' : 'text-emerald-300'
+                        className={`mt-0.5 inline-flex items-center gap-1.5 text-xs ${
+                          waiting ? 'text-[#c9b56a]' : 'text-emerald-300'
                         }`}
                       >
                         <span
-                          className={`size-1.5 rounded-full ${waiting ? 'bg-[#E7B66D]' : 'bg-emerald-400'}`}
+                          className={`size-1.5 rounded-full ${waiting ? 'bg-[#c9b56a]' : 'bg-emerald-400'}`}
                         />
                         {link.payments}
                       </p>
                     </div>
-                    <p className="text-[9px] font-medium text-white">{link.volume}</p>
-                    <MoreHorizontal className="size-4 shrink-0 text-white/35" aria-hidden />
+                    <p className="text-sm font-medium text-white">{link.volume}</p>
                   </div>
                 );
               })
@@ -528,24 +460,24 @@ export function WorkspaceOverview({
           <button
             type="button"
             onClick={onCreatePaymentLink}
-            className="mt-2 inline-flex h-7 w-full items-center justify-center gap-2 rounded-md border border-dashed border-[#E7B66D]/50 bg-[#E7B66D]/[0.03] text-[8px] font-medium text-[#F3E6C8] transition hover:bg-[#E7B66D]/10"
+            className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-[#C3D0E8]/35 text-sm text-[#C3D0E8] transition hover:border-[#C3D0E8]/70 hover:text-[#EEF4FF]"
           >
-            <Plus className="size-4 text-[#E7B66D]" strokeWidth={2.4} />
+            <Plus className="size-4 text-[#c9b56a]" strokeWidth={2.4} />
             New payment link
           </button>
         </section>
       </div>
 
-      <div className="grid gap-3.5 lg:grid-cols-3">
+      <div className="z-10 -mt-px flex flex-col lg:flex-row">
         <DeckCard
           label="Settlement & Payouts"
           title="Next payout"
-          open={openDeck === 'payout'}
-          onToggle={() => setOpenDeck((current) => (current === 'payout' ? null : 'payout'))}
+          open={openDeck.payout}
+          onToggle={() => setOpenDeck((current) => ({ ...current, payout: !current.payout }))}
           icon={<ArrowUpRight className="size-4" strokeWidth={1.8} />}
         >
           <div className="mt-3 flex items-end justify-between gap-3">
-            <p className="text-[26px] font-semibold tracking-tight text-white">
+            <p className="dash-display text-[1.8rem] leading-none text-[#EEF4FF]">
               {loading ? '…' : stats.nextPayout}
             </p>
             <span className="mb-1 rounded-full bg-sky-400/10 px-2.5 py-1 text-[11px] font-semibold text-sky-200">
@@ -561,10 +493,11 @@ export function WorkspaceOverview({
         </DeckCard>
 
         <DeckCard
+          join
           label="Payment Mix"
           title="Asset distribution"
-          open={openDeck === 'mix'}
-          onToggle={() => setOpenDeck((current) => (current === 'mix' ? null : 'mix'))}
+          open={openDeck.mix}
+          onToggle={() => setOpenDeck((current) => ({ ...current, mix: !current.mix }))}
           icon={<RefreshCw className="size-4" strokeWidth={1.8} />}
         >
           <div className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-white/10">
@@ -589,10 +522,11 @@ export function WorkspaceOverview({
         </DeckCard>
 
         <DeckCard
+          join
           label="Compliance & Security"
           title="Customer Journey"
-          open={openDeck === 'funnel'}
-          onToggle={() => setOpenDeck((current) => (current === 'funnel' ? null : 'funnel'))}
+          open={openDeck.funnel}
+          onToggle={() => setOpenDeck((current) => ({ ...current, funnel: !current.funnel }))}
           icon={
             <span className="inline-flex items-center gap-1.5">
               <LockKeyhole className="size-3.5" strokeWidth={1.7} />
@@ -609,7 +543,7 @@ export function WorkspaceOverview({
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#7EB6FF] to-[#E7B66D]"
+                    className="h-full rounded-full bg-gradient-to-r from-[#7EB6FF] to-[#c9b56a]"
                     style={{ width: `${Math.max(step.pct, 0)}%` }}
                   />
                 </div>
@@ -618,6 +552,7 @@ export function WorkspaceOverview({
           </div>
           <p className="mt-4 text-sm font-semibold text-emerald-300">{stats.completionPct}</p>
         </DeckCard>
+      </div>
       </div>
     </div>
   );
@@ -630,6 +565,7 @@ function MetricCard({
   dot,
   text,
   icon: Icon,
+  join = false,
 }: {
   label: string;
   value: string;
@@ -637,20 +573,18 @@ function MetricCard({
   dot: string;
   text: string;
   icon: typeof Wallet;
+  join?: boolean;
 }) {
   return (
-    <div className="ov-card ov-metric relative min-h-[96px] overflow-hidden px-4 py-3.5">
+    <div className={`ov-card ov-metric relative min-h-[148px] min-w-0 flex-1 overflow-hidden${join ? " z-10 -mt-px lg:mt-0 lg:-ml-px" : ""}`}>
       <div className="flex items-start justify-between gap-2">
-        <p className="inline-flex items-center gap-1.5 text-[7px] font-semibold tracking-[0.14em] text-white/45 uppercase">
-          <span className="text-[#91A8D0]">↗</span>
-          {label}
-        </p>
-        <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.035] text-[#9BB6FF]">
+        <p className="text-[11px] tracking-[0.14em] text-[#c9b56a] uppercase">{label}</p>
+        <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-[#C3D0E8]/35 bg-white/[0.035] text-[#9BB6FF]">
           <Icon className="size-3" strokeWidth={1.8} />
         </span>
       </div>
-      <p className="mt-2 text-[20px] leading-none font-medium tracking-tight text-white">{value}</p>
-      <p className={`mt-2.5 inline-flex items-center gap-1.5 text-[8px] font-medium ${text}`}>
+      <p className="dash-display mt-2 text-[1.7rem] leading-none text-[#EEF4FF]">{value}</p>
+      <p className={`mt-2.5 inline-flex items-center gap-1.5 text-xs font-medium ${text}`}>
         <span className={`size-1.5 rounded-full ${dot}`} />
         {caption}
       </p>
@@ -663,11 +597,11 @@ function StatusPill({ status }: { status: 'Settled' | 'Processing' | 'Failed' })
     status === 'Settled'
       ? 'border-emerald-300/30 bg-emerald-400/10 text-emerald-200'
       : status === 'Processing'
-        ? 'border-[#E7B66D]/40 bg-[#E7B66D]/10 text-[#F3D7A2]'
+        ? 'border-[#c9b56a]/40 bg-[#c9b56a]/10 text-[#c9b56a]'
         : 'border-rose-300/30 bg-rose-400/10 text-rose-200';
   const Icon = status === 'Settled' ? CheckCircle2 : status === 'Processing' ? Clock3 : AlertTriangle;
   return (
-    <span className={`inline-flex w-fit items-center gap-1 rounded-full border px-2 py-1 text-[7px] font-medium ${styles}`}>
+    <span className={`inline-flex w-fit items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium ${styles}`}>
       <Icon className="size-2.5" strokeWidth={2.2} />
       {status}
     </span>
@@ -680,6 +614,7 @@ function DeckCard({
   open,
   onToggle,
   icon,
+  join = false,
   children,
 }: {
   label: string;
@@ -687,10 +622,11 @@ function DeckCard({
   open: boolean;
   onToggle: () => void;
   icon: ReactNode;
+  join?: boolean;
   children: ReactNode;
 }) {
   return (
-    <section className="ov-card px-4 py-3">
+    <section className={`ov-card min-h-[156px] min-w-0 flex-1${join ? " z-10 -mt-px lg:mt-0 lg:-ml-px" : ""}`}>
       <button
         type="button"
         onClick={onToggle}
@@ -698,12 +634,12 @@ function DeckCard({
         className="flex w-full items-center justify-between gap-3 text-left"
       >
         <span>
-          <span className="block text-[7px] font-semibold tracking-[0.16em] text-white/45 uppercase">
+          <span className="block text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">
             {label}
           </span>
-          <span className="mt-1 block text-[9px] text-white/70">{title}</span>
+          <span className="mt-1 block text-sm text-white/70">{title}</span>
         </span>
-        <span className="inline-flex h-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] px-2 text-white/60">
+        <span className="inline-flex h-7 items-center justify-center rounded-full border border-[#C3D0E8]/35 bg-white/[0.035] px-2 text-white/60">
           {icon}
         </span>
       </button>

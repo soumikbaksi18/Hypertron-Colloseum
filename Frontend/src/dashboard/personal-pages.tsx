@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ArrowUpRight,
   Copy,
@@ -12,7 +12,7 @@ import { DepositPreflightError } from '../lib/deposit-preflight';
 import { money } from '../lib/format';
 import { ApiError } from '../lib/http';
 import { loadNotes, privateBalance } from '../lib/note-book';
-import { payUrl, paymentLinksApi, type PaymentLink } from '../lib/payment-links';
+import { paymentLinksApi, type PaymentLink } from '../lib/payment-links';
 import { shortenAddress } from '../lib/phantom';
 import {
   addMoney,
@@ -26,13 +26,32 @@ import { formatUsdcMinor, parseUsdcInput } from '../lib/usdc-amount';
 import { useDepositPreflight } from '../lib/use-deposit-preflight';
 import { walletApi } from '../lib/wallet';
 import { SettingsPage } from '../pages/app/SettingsPage';
+import { cn } from './cn';
+
+type MoveMode = 'add' | 'send' | 'cashout';
+
+const MOVE_MODES: { id: MoveMode; label: string; detail: string }[] = [
+  {
+    id: 'add',
+    label: 'Add money',
+    detail: 'Public. The amount and your Phantom address show on-chain.',
+  },
+  {
+    id: 'send',
+    label: 'Send',
+    detail: 'Private. A pool transfer does not publish the amount or who you paid.',
+  },
+  {
+    id: 'cashout',
+    label: 'Cash out',
+    detail: 'Public. The amount lands on your Phantom address.',
+  },
+];
 
 const FIELD =
-  'mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#4A63BE] focus:ring-4 focus:ring-[#4A63BE]/10';
+  'mt-2 h-12 w-full rounded-xl border border-[#C3D0E8]/35 bg-transparent px-4 text-sm text-[#EEF4FF] outline-none transition placeholder:text-[#C3D0E8]/40 focus:border-[#C3D0E8]/70';
 const PRIMARY =
-  'inline-flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-[#121F46] to-[#4A63BE] px-5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(18,31,70,0.22)] disabled:opacity-50';
-const SECONDARY =
-  'inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50';
+  'inline-flex h-11 items-center justify-center rounded-full bg-[#ffe500] px-5 text-sm font-medium text-[#14110e] disabled:opacity-50';
 
 export function PersonalWallet() {
   const { session, refresh } = useWalletSession();
@@ -45,6 +64,7 @@ export function PersonalWallet() {
   const [copied, setCopied] = useState(false);
   const [tx, setTx] = useState<string | null>(null);
   const [confirmDeposit, setConfirmDeposit] = useState(false);
+  const [move, setMove] = useState<MoveMode>('add');
   const keys = loadShieldKeys();
   const { preflight, checking } = useDepositPreflight({
     payer: session?.wallet_address,
@@ -183,73 +203,117 @@ export function PersonalWallet() {
     }
   }
 
+  const moveMeta = MOVE_MODES.find((item) => item.id === move) ?? MOVE_MODES[0];
+  const primaryLabel = busy
+    ? busy
+    : move === 'add'
+      ? confirmDeposit
+        ? 'Confirm public deposit'
+        : 'Add money'
+      : move === 'send'
+        ? 'Send privately'
+        : 'Cash out';
+  const primaryDisabled =
+    Boolean(busy) || (move === 'add' && (checking || Boolean(preflight && !preflight.ok)));
+
+  function selectMove(next: MoveMode) {
+    setMove(next);
+    setConfirmDeposit(false);
+    setError(null);
+  }
+
+  function onPrimary() {
+    if (move === 'add') void onAddMoney();
+    else if (move === 'send') void onSend();
+    else void onCashOut();
+  }
+
   return (
-    <div className="space-y-5">
-      <div>
-        <p className="text-[11px] font-semibold tracking-[0.16em] text-[#C9A46A] uppercase">
-          Private USDC
-        </p>
-        <h1 className="mt-1 text-[28px] font-semibold tracking-tight text-slate-950">Wallet</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Send to a Hypertron ID stays in the pool. Add money and cash out are visible on-chain.
-        </p>
-      </div>
+    <div className="flex w-full flex-col pb-6">
+      <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">Private USDC</p>
+      <h1 className="dash-display mt-3 text-[clamp(2.2rem,4vw,3.2rem)] leading-[0.96] tracking-[-0.035em] text-[#EEF4FF]">
+        Wallet
+      </h1>
+      <p className="mt-4 max-w-md text-sm leading-relaxed text-[#EEF4FF]/70">
+        Pick one move. Send stays private. Adding money and cashing out are public.
+      </p>
 
       {error ? (
-        <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        <p
+          role="alert"
+          className="mt-4 rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
+        >
           {error}
         </p>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
-        <section className="overflow-hidden rounded-2xl border border-[#1a2a55] bg-gradient-to-br from-[#0F1939] via-[#121F46] to-[#1a2f6b] p-6 text-white">
-          <p className="text-[11px] font-semibold tracking-[0.14em] text-white/55 uppercase">
-            Shielded balance
-          </p>
-          <p className="mt-4 text-[40px] leading-none font-semibold tracking-tight">
-            {money(balance, 'USDC')}
-          </p>
-          <p className="mt-3 text-sm text-white/60">
-            Notes live in this browser. Incoming sends show up after a scan.
-          </p>
-        </section>
+      <div className="mt-8 flex flex-col">
+        <div className="flex flex-col lg:flex-row">
+          <section className="ov-card min-w-0 flex-[1.2]">
+            <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">Shielded balance</p>
+            <p className="dash-display mt-4 text-[clamp(2.4rem,4vw,3.2rem)] leading-none text-[#EEF4FF]">
+              {money(balance, 'USDC')}
+            </p>
+            <p className="mt-3 text-sm text-[#C3D0E8]/55">
+              Notes live in this browser. Incoming sends show up after a scan.
+            </p>
+          </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5">
-          <p className="text-[11px] font-semibold tracking-[0.14em] text-slate-400 uppercase">
-            Your Hypertron ID
-          </p>
-          <p className="mt-3 font-mono text-lg font-semibold tracking-tight text-slate-950">
-            {handle ?? 'Assigning…'}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Share this — not your Phantom address — so someone can pay you privately.
-          </p>
-          <button
-            type="button"
-            disabled={!handle}
-            onClick={() => {
-              if (!handle) return;
-              void navigator.clipboard.writeText(handle);
-              setCopied(true);
-              window.setTimeout(() => setCopied(false), 1500);
-            }}
-            className={`${SECONDARY} mt-4 w-full gap-2`}
-          >
-            <Copy className="size-4" />
-            {copied ? 'Copied' : 'Copy ID'}
-          </button>
-        </section>
-      </div>
+          <section className="ov-card z-10 -mt-px min-w-0 flex-1 lg:mt-0 lg:-ml-px">
+            <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">Your Hypertron ID</p>
+            <div className="mt-4 flex items-center gap-3">
+              <p className="dash-display min-w-0 truncate font-mono text-[1.6rem] leading-none text-[#EEF4FF]">
+                {handle ?? 'Assigning…'}
+              </p>
+              <button
+                type="button"
+                disabled={!handle}
+                onClick={() => {
+                  if (!handle) return;
+                  void navigator.clipboard.writeText(handle);
+                  setCopied(true);
+                  window.setTimeout(() => setCopied(false), 1500);
+                }}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#C3D0E8]/45 px-3 text-xs text-[#C3D0E8] transition hover:border-[#C3D0E8]/70 hover:text-[#EEF4FF] disabled:opacity-40"
+              >
+                <Copy className="size-3.5" />
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            <p className="mt-3 max-w-sm text-sm leading-6 text-[#C3D0E8]/55">
+              Share this ID, not your Phantom address, so someone can pay you privately.
+            </p>
+          </section>
+        </div>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <p className="text-[11px] font-semibold tracking-[0.14em] text-slate-400 uppercase">
-          Move funds
-        </p>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <label className="block">
-            <span className="text-sm font-semibold text-slate-900">Amount (USDC)</span>
+        <section className="ov-card z-10 -mt-px">
+          <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">Move funds</p>
+          <div className="mt-4 inline-flex w-full flex-wrap gap-1 rounded-xl border border-[#C3D0E8]/35 p-1 sm:w-auto">
+            {MOVE_MODES.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={move === item.id}
+                onClick={() => selectMove(item.id)}
+                className={cn(
+                  'h-9 flex-1 rounded-lg px-4 text-sm transition sm:flex-none',
+                  move === item.id
+                    ? 'bg-white/[0.08] text-[#EEF4FF]'
+                    : 'text-[#C3D0E8]/60 hover:text-[#EEF4FF]',
+                )}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 max-w-lg text-sm leading-6 text-[#C3D0E8]/70">{moveMeta.detail}</p>
+
+          <label className="mt-5 block max-w-md">
+            <span className="text-[10px] font-semibold tracking-[0.12em] text-[#c9b56a] uppercase">
+              Amount (USDC)
+            </span>
             <input
-              className={FIELD}
+              className={`${FIELD} text-[clamp(1.25rem,2vw,1.6rem)] font-medium tracking-tight`}
               value={amount}
               onChange={(event) => {
                 setConfirmDeposit(false);
@@ -260,12 +324,21 @@ export function PersonalWallet() {
             <div className="mt-2 flex flex-wrap gap-1.5">
               {buckets.map((minor) => {
                 const label = formatUsdcMinor(BigInt(minor));
+                const active = amount === label;
                 return (
                   <button
                     key={minor}
                     type="button"
-                    onClick={() => setAmount(label)}
-                    className="h-8 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-600 hover:border-[#E7B66D]/50"
+                    onClick={() => {
+                      setConfirmDeposit(false);
+                      setAmount(label);
+                    }}
+                    className={cn(
+                      'h-8 rounded-lg border px-2.5 text-xs transition',
+                      active
+                        ? 'border-[#c9b56a]/70 bg-[#c9b56a]/12 text-[#c9b56a]'
+                        : 'border-[#C3D0E8]/35 text-[#C3D0E8] hover:border-[#C3D0E8]/70',
+                    )}
                   >
                     {label}
                   </button>
@@ -273,212 +346,63 @@ export function PersonalWallet() {
               })}
             </div>
           </label>
-          <label className="block">
-            <span className="text-sm font-semibold text-slate-900">Send to Hypertron ID</span>
-            <input
-              className={`${FIELD} font-mono`}
-              value={sendTo}
-              onChange={(event) => setSendTo(event.target.value)}
-              placeholder="ht_…"
-              spellCheck={false}
-            />
-          </label>
-        </div>
-        {preflight && !preflight.ok && !checking ? (
-          <p role="alert" className="mt-4 text-sm text-rose-700">
-            {preflight.error}
-          </p>
-        ) : null}
-        {confirmDeposit && preflight?.ok ? (
-          <div className="mt-4 rounded-xl border border-[#E7B66D]/40 bg-[#F8F0E2]/60 px-4 py-3 text-sm text-slate-700">
-            <p className="font-semibold text-slate-900">This deposit is public</p>
-            <p className="mt-1 leading-6">
-              {preflight.disclosure.amount} from your Phantom wallet will be visible
-              on Solana, with the time it confirms. Sends after that stay private.
+
+          {move === 'send' ? (
+            <label className="mt-4 block max-w-md">
+              <span className="text-[10px] font-semibold tracking-[0.12em] text-[#c9b56a] uppercase">
+                Send to Hypertron ID
+              </span>
+              <input
+                className={`${FIELD} font-mono`}
+                value={sendTo}
+                onChange={(event) => setSendTo(event.target.value)}
+                placeholder="ht_…"
+                spellCheck={false}
+                autoComplete="off"
+              />
+            </label>
+          ) : null}
+
+          {move === 'cashout' ? (
+            <p className="mt-4 text-sm text-[#C3D0E8]/70">
+              Lands on {shortenAddress(walletAddress)}.
             </p>
-          </div>
-        ) : null}
-        <div className="mt-5 flex flex-wrap gap-2">
+          ) : null}
+
+          {move === 'add' && preflight && !preflight.ok && !checking ? (
+            <p role="alert" className="mt-4 text-sm text-rose-200">
+              {preflight.error}
+            </p>
+          ) : null}
+          {move === 'add' && confirmDeposit && preflight?.ok ? (
+            <div className="mt-4 max-w-lg rounded-xl border border-[#c9b56a]/35 bg-[#c9b56a]/10 px-4 py-3 text-sm text-[#C3D0E8]">
+              <p className="text-[#EEF4FF]">This deposit is public</p>
+              <p className="mt-1 leading-6">
+                {preflight.disclosure.amount} from your Phantom wallet will be visible on Solana,
+                with the time it confirms. Sends after that stay private.
+              </p>
+            </div>
+          ) : null}
+
+          {!keys ? (
+            <p className="mt-4 text-sm text-[#c9b56a]">
+              Shield keys for this ID live on another device. Import a backup in Settings to spend.
+            </p>
+          ) : null}
+
           <button
             type="button"
-            className={PRIMARY}
-            disabled={Boolean(busy) || checking || Boolean(preflight && !preflight.ok)}
-            onClick={() => void onAddMoney()}
+            className={`${PRIMARY} mt-5`}
+            disabled={primaryDisabled}
+            onClick={onPrimary}
           >
-            {busy ? busy : confirmDeposit ? 'Confirm public deposit' : 'Add money'}
+            {primaryLabel}
           </button>
-          <button type="button" className={SECONDARY} disabled={Boolean(busy)} onClick={() => void onSend()}>
-            Send privately
-          </button>
-          <button type="button" className={SECONDARY} disabled={Boolean(busy)} onClick={() => void onCashOut()}>
-            Cash out
-          </button>
-        </div>
-        <p className="mt-3 text-xs text-slate-500">
-          Cash out lands on {shortenAddress(walletAddress)} with a public amount.
-        </p>
-        {tx ? <div className="mt-3"><ExplorerTxLink signature={tx} /></div> : null}
-      </section>
-    </div>
-  );
-}
-
-export function PersonalRequest() {
-  const { session } = useWalletSession();
-  const [links, setLinks] = useState<PaymentLink[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
-  const [amount, setAmount] = useState('1');
-  const [purpose, setPurpose] = useState('');
-  const buckets = links[0]?.amount_buckets ?? [
-    '100000',
-    '500000',
-    '1000000',
-    '5000000',
-    '10000000',
-  ];
-
-  async function refreshLinks() {
-    setLinks(await paymentLinksApi.list());
-  }
-
-  useEffect(() => {
-    void refreshLinks().catch((err) =>
-      setError(err instanceof ApiError ? err.message : 'Could not load requests.'),
-    );
-  }, []);
-
-  async function onCreate(event: FormEvent) {
-    event.preventDefault();
-    const dollars = Number(amount);
-    if (!Number.isFinite(dollars) || dollars <= 0) {
-      setError('Enter an amount greater than zero.');
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const created = await paymentLinksApi.create({
-        amount_minor: Math.round(dollars * 1_000_000),
-        currency: 'USDC',
-        purpose: purpose.trim() || 'Payment request',
-      });
-      setLinks((current) => [created, ...current]);
-      await navigator.clipboard.writeText(payUrl(created.id, created.url)).catch(() => undefined);
-      setCopied(created.id);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not create this request.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (!session) return null;
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <p className="text-[11px] font-semibold tracking-[0.16em] text-[#C9A46A] uppercase">
-          Peer to peer
-        </p>
-        <h1 className="mt-1 text-[28px] font-semibold tracking-tight text-slate-950">Request</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Ask someone to pay {session.handle ?? 'your Hypertron ID'}. They pay from their private
-          balance — your Phantom address stays off the link.
-        </p>
-      </div>
-
-      {error ? (
-        <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-          {error}
-        </p>
-      ) : null}
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <form className="rounded-2xl border border-slate-200 bg-white p-5" onSubmit={(event) => void onCreate(event)}>
-          <p className="text-sm font-semibold text-slate-900">New request</p>
-          <label className="mt-4 block">
-            <span className="text-xs font-semibold text-slate-500">Amount (USDC)</span>
-            <input
-              className={FIELD}
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              inputMode="decimal"
-            />
-          </label>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {buckets.map((minor) => {
-              const dollars = (Number(minor) / 1_000_000).toString();
-              return (
-                <button
-                  key={minor}
-                  type="button"
-                  onClick={() => setAmount(dollars)}
-                  className="h-8 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-600"
-                >
-                  {dollars}
-                </button>
-              );
-            })}
-          </div>
-          <label className="mt-4 block">
-            <span className="text-xs font-semibold text-slate-500">What for</span>
-            <input
-              className={FIELD}
-              value={purpose}
-              onChange={(event) => setPurpose(event.target.value)}
-              placeholder="Dinner, rent share…"
-            />
-          </label>
-          <button className={`${PRIMARY} mt-5 w-full`} disabled={busy} type="submit">
-            {busy ? 'Creating…' : 'Create request'}
-          </button>
-        </form>
-
-        <section className="rounded-2xl border border-slate-200 bg-white p-5">
-          <p className="text-sm font-semibold text-slate-900">Open requests</p>
-          <div className="mt-4 space-y-2.5">
-            {links.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-400">
-                No requests yet.
-              </p>
-            ) : (
-              links.map((link) => (
-                <div key={link.id} className="rounded-xl border border-slate-100 px-3.5 py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">
-                        {link.purpose ?? 'Payment request'}
-                      </p>
-                      <p className="mt-0.5 text-xs text-slate-500">{link.status}</p>
-                    </div>
-                    <p className="text-sm font-semibold text-slate-900">
-                      {money(link.amount, link.currency)}
-                    </p>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="h-8 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(payUrl(link.id, link.url));
-                        setCopied(link.id);
-                      }}
-                    >
-                      {copied === link.id ? 'Copied' : 'Copy link'}
-                    </button>
-                    {link.status === 'paid' && (link.tx_signature || link.payment_tx_hash) ? (
-                      <ExplorerTxLink
-                        signature={link.tx_signature ?? link.payment_tx_hash}
-                        cluster={link.cluster}
-                      />
-                    ) : null}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+          {tx ? (
+            <div className="mt-3">
+              <ExplorerTxLink signature={tx} />
+            </div>
+          ) : null}
         </section>
       </div>
     </div>
@@ -502,58 +426,58 @@ export function PersonalActivity() {
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-[11px] font-semibold tracking-[0.16em] text-[#C9A46A] uppercase">
+        <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">
           History
         </p>
-        <h1 className="mt-1 text-[28px] font-semibold tracking-tight text-slate-950">Activity</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="dash-display mt-3 text-[clamp(2.2rem,4vw,3.2rem)] leading-[0.96] tracking-[-0.035em] text-[#EEF4FF]">Activity</h1>
+        <p className="mt-4 max-w-md text-sm leading-relaxed text-[#EEF4FF]/70">
           Notes you hold privately, and payment requests you created.
         </p>
       </div>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <p className="text-sm font-semibold text-slate-900">Held privately</p>
+      <section className="rounded-[1.35rem] border border-[#C3D0E8]/45 bg-[#03080b] p-8">
+        <p className="text-sm text-[#EEF4FF]">Held privately</p>
         {held.length === 0 ? (
-          <p className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-400">
+          <p className="mt-4 rounded-[1.35rem] border border-dashed border-[#C3D0E8]/35 px-4 py-8 text-center text-sm text-[#C3D0E8]/55">
             No shielded notes in this browser yet. Add money or receive a send.
           </p>
         ) : (
-          <ul className="mt-4 divide-y divide-slate-100">
+          <ul className="mt-4 divide-y divide-[#C3D0E8]/25">
             {held.map((note) => (
               <li key={note.commitment} className="flex items-center justify-between gap-3 py-3">
-                <span className="inline-flex items-center gap-2 text-sm text-slate-700">
-                  <Shield className="size-4 text-[#E7B66D]" />
+                <span className="inline-flex items-center gap-2 text-sm text-[#C3D0E8]">
+                  <Shield className="size-4 text-[#c9b56a]" />
                   Note {note.commitment.slice(0, 10)}…
                 </span>
-                <span className="text-sm font-semibold text-slate-950">{money(note.v, 'USDC')}</span>
+                <span className="dash-display text-[1.35rem] text-[#EEF4FF]">{money(note.v, 'USDC')}</span>
               </li>
             ))}
           </ul>
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <p className="text-sm font-semibold text-slate-900">Requests</p>
+      <section className="rounded-[1.35rem] border border-[#C3D0E8]/45 bg-[#03080b] p-8">
+        <p className="text-sm text-[#EEF4FF]">Requests</p>
         {loading ? (
-          <p className="mt-4 flex items-center gap-2 text-sm text-slate-500">
+          <p className="mt-4 flex items-center gap-2 text-sm text-[#C3D0E8]/55">
             <Loader2 className="size-4 animate-spin" />
             Loading…
           </p>
         ) : links.length === 0 ? (
-          <p className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-400">
+          <p className="mt-4 rounded-[1.35rem] border border-dashed border-[#C3D0E8]/35 px-4 py-8 text-center text-sm text-[#C3D0E8]/55">
             No requests yet.
           </p>
         ) : (
-          <ul className="mt-4 divide-y divide-slate-100">
+          <ul className="mt-4 divide-y divide-[#C3D0E8]/25">
             {links.map((link) => (
               <li key={link.id} className="flex items-center justify-between gap-3 py-3">
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-slate-900">
+                  <span className="block truncate text-sm text-[#EEF4FF]">
                     {link.purpose ?? 'Payment request'}
                   </span>
-                  <span className="text-xs text-slate-500">{link.status}</span>
+                  <span className="text-xs text-[#C3D0E8]/55">{link.status}</span>
                 </span>
-                <span className="inline-flex items-center gap-1 text-sm font-semibold text-slate-950">
+                <span className="inline-flex items-center gap-1 dash-display text-[1.35rem] text-[#EEF4FF]">
                   {link.status === 'paid' ? <ArrowUpRight className="size-3.5 text-emerald-600" /> : null}
                   {money(link.amount, link.currency)}
                 </span>

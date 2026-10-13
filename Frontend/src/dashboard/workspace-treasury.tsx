@@ -9,7 +9,6 @@ import {
   ArrowRight,
   ArrowUpFromLine,
   ChevronDown,
-  ChevronRight,
   CircleAlert,
   Copy,
   FileText,
@@ -37,9 +36,7 @@ import {
 import { loadShieldKeys } from '../lib/shield-keys';
 import { formatUsdcMinor, parseUsdcInput } from '../lib/usdc-amount';
 import { useDepositPreflight } from '../lib/use-deposit-preflight';
-import type { WorkspaceView } from '../lib/workspaces';
 import { walletApi } from '../lib/wallet';
-import { DashboardUtilities, type DashboardMode } from './chrome';
 import { cn } from './cn';
 
 type MoveTab = 'add' | 'send' | 'cashout';
@@ -53,17 +50,7 @@ function networkLabel(): string {
   return 'Solana Devnet';
 }
 
-export function WorkspaceTreasury({
-  workspace,
-  searchPlaceholder,
-  identityTitle,
-  onModeChange,
-}: {
-  workspace: WorkspaceView;
-  searchPlaceholder: string;
-  identityTitle: string;
-  onModeChange?: (mode: DashboardMode) => void;
-}) {
+export function WorkspaceTreasury() {
   const { session, refresh } = useWalletSession();
   const [balance, setBalance] = useState('0');
   const [buckets, setBuckets] = useState<string[]>([]);
@@ -249,29 +236,12 @@ export function WorkspaceTreasury({
 
   return (
     <div className="dash-treasury flex w-full flex-col gap-4 pb-4">
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-        <nav className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px] text-white/45">
-          <span className="text-white/55">{workspace.name}</span>
-          <ChevronRight className="size-3 text-white/30" strokeWidth={2} />
-          <span className="font-medium text-white/80">Treasury</span>
-        </nav>
-        <div className="lg:justify-self-end">
-          <DashboardUtilities
-            searchPlaceholder={searchPlaceholder}
-            identityTitle={identityTitle}
-            mode="workspaces"
-            onModeChange={onModeChange}
-            density="regular"
-          />
-        </div>
-      </div>
-
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[clamp(22px,2.6vw,30px)] font-semibold tracking-tight text-white">
+          <h1 className="dash-display text-[clamp(2.2rem,4vw,3.2rem)] leading-[0.96] tracking-[-0.035em] text-[#EEF4FF]">
             Private USDC
           </h1>
-          <p className="mt-1.5 text-[13px] text-white/45">
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-[#EEF4FF]/70">
             Add money and cash out are public. Send is private.
           </p>
         </div>
@@ -279,16 +249,16 @@ export function WorkspaceTreasury({
           <button
             type="button"
             onClick={() => setNetworkOpen((open) => !open)}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-[#0c1629] px-3 text-[11px] font-medium text-white/75 transition hover:border-white/20"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#C3D0E8]/35 bg-transparent px-3 text-[11px] font-medium text-white/75 transition hover:border-[#C3D0E8]/55"
           >
             <SolanaMark />
             Network: {networkLabel()}
             <ChevronDown className="size-3.5 text-white/40" />
           </button>
           {networkOpen ? (
-            <div className="absolute top-[calc(100%+6px)] right-0 z-20 min-w-[200px] overflow-hidden rounded-xl border border-white/10 bg-[#10182e] py-1 shadow-[0_16px_40px_rgba(0,0,0,0.45)]">
+            <div className="absolute top-[calc(100%+6px)] right-0 z-20 min-w-[200px] overflow-hidden rounded-xl border border-[#C3D0E8]/35 bg-[#03080b] py-1 shadow-[0_16px_40px_rgba(0,0,0,0.45)]">
               <p className="px-3.5 py-2 text-sm text-white/80">{networkLabel()}</p>
-              <p className="border-t border-white/10 px-3.5 py-2 text-xs text-white/45">
+              <p className="border-t border-[#C3D0E8]/35 px-3.5 py-2 text-xs text-white/45">
                 Switch network in your RPC / Phantom settings.
               </p>
             </div>
@@ -305,7 +275,8 @@ export function WorkspaceTreasury({
         </div>
       ) : null}
 
-      <div className="grid gap-3.5 lg:grid-cols-2">
+      <div className="flex flex-col">
+      <div className="flex flex-col lg:flex-row">
         <MetricCard
           label="Private balance"
           value={money(balance, 'USDC')}
@@ -317,6 +288,7 @@ export function WorkspaceTreasury({
           }
         />
         <MetricCard
+          join
           label="Your Hypertron ID"
           value={handle ?? 'Assigning…'}
           mono
@@ -330,7 +302,7 @@ export function WorkspaceTreasury({
                 setCopied(true);
                 window.setTimeout(() => setCopied(false), 1500);
               }}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-[11px] font-medium text-white/70 transition hover:border-white/25 hover:text-white"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#C3D0E8]/35 bg-white/[0.04] px-3 text-[11px] font-medium text-white/70 transition hover:border-white/25 hover:text-white"
             >
               <Copy className="size-3.5" strokeWidth={1.75} />
               {copied ? 'Copied' : 'Copy ID'}
@@ -339,13 +311,13 @@ export function WorkspaceTreasury({
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] xl:items-start">
-        <section className="ov-card p-4 sm:p-5">
-          <p className="text-[10px] font-semibold tracking-[0.14em] text-white/40 uppercase">
+      <div className="z-10 -mt-px flex flex-col xl:flex-row">
+        <section className="ov-card min-w-0 flex-[1.15]">
+          <p className="text-[10px] font-semibold tracking-[0.14em] text-[#c9b56a] uppercase">
             Move funds
           </p>
 
-          <div className="mt-3 inline-flex w-full flex-wrap gap-1 rounded-xl border border-white/10 bg-[#0a1426] p-1">
+          <div className="mt-3 inline-flex w-full flex-wrap gap-1 rounded-xl border border-[#C3D0E8]/35 bg-transparent p-1">
             <MoveTabButton
               active={tab === 'add'}
               onClick={() => {
@@ -377,12 +349,19 @@ export function WorkspaceTreasury({
               label="Cash out"
             />
           </div>
+          <p className="mt-3 text-sm leading-6 text-[#C3D0E8]/70">
+            {tab === 'send'
+              ? 'Private. A pool transfer does not publish the amount or who you paid.'
+              : tab === 'add'
+                ? 'Public. The amount and your Phantom address show on-chain.'
+                : 'Public. The amount lands on your Phantom address.'}
+          </p>
 
           <label className="mt-4 block">
-            <span className="text-[10px] font-semibold tracking-[0.12em] text-white/40 uppercase">
+            <span className="text-[10px] font-semibold tracking-[0.12em] text-[#c9b56a] uppercase">
               Amount (USDC)
             </span>
-            <div className="mt-2 flex items-stretch gap-2 rounded-xl border border-white/10 bg-[#0a1426] p-1.5">
+            <div className="mt-2 flex items-stretch gap-2 rounded-xl border border-[#C3D0E8]/35 bg-transparent p-1.5">
               <input
                 value={amount}
                 onChange={(event) => {
@@ -392,12 +371,11 @@ export function WorkspaceTreasury({
                 inputMode="decimal"
                 className="min-w-0 flex-1 bg-transparent px-3 py-3 text-[clamp(24px,3.5vw,32px)] font-medium tracking-tight text-white outline-none"
               />
-              <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#101c33] px-3 text-sm font-medium text-white">
+              <div className="flex items-center gap-2 rounded-lg border border-[#C3D0E8]/35 bg-transparent px-3 text-sm font-medium text-white">
                 <span className="inline-flex size-5 items-center justify-center rounded-full bg-[#2775CA] text-[9px] font-bold text-white">
                   $
                 </span>
                 USDC
-                <ChevronDown className="size-3.5 text-white/40" />
               </div>
             </div>
           </label>
@@ -416,8 +394,8 @@ export function WorkspaceTreasury({
                   className={cn(
                     'inline-flex h-8 min-w-[42px] items-center justify-center rounded-lg border px-3 text-[12px] font-medium transition',
                     active
-                      ? 'border-[#E7B66D]/70 bg-[#E7B66D]/12 text-[#F3D28F]'
-                      : 'border-white/10 bg-white/[0.03] text-white/55 hover:border-white/20 hover:text-white/80',
+                      ? 'border-[#c9b56a]/70 bg-[#c9b56a]/12 text-[#c9b56a]'
+                      : 'border-[#C3D0E8]/35 bg-white/[0.03] text-white/55 hover:border-[#C3D0E8]/55 hover:text-white/80',
                   )}
                 >
                   {preset}
@@ -428,7 +406,7 @@ export function WorkspaceTreasury({
 
           {tab === 'send' ? (
             <label className="mt-4 block">
-              <span className="text-[10px] font-semibold tracking-[0.12em] text-white/40 uppercase">
+              <span className="text-[10px] font-semibold tracking-[0.12em] text-[#c9b56a] uppercase">
                 Send to Hypertron ID
               </span>
               <input
@@ -436,7 +414,7 @@ export function WorkspaceTreasury({
                 onChange={(event) => setSendTo(event.target.value)}
                 placeholder="ht_…"
                 spellCheck={false}
-                className="mt-2 h-11 w-full rounded-lg border border-white/10 bg-[#0a1426] px-3 font-mono text-sm text-white outline-none placeholder:text-white/30 focus:border-white/25"
+                className="mt-2 h-11 w-full rounded-lg border border-[#C3D0E8]/35 bg-transparent px-3 font-mono text-sm text-white outline-none placeholder:text-white/30 focus:border-white/25"
               />
             </label>
           ) : null}
@@ -466,7 +444,7 @@ export function WorkspaceTreasury({
               type="button"
               disabled={primaryDisabled}
               onClick={() => void onPrimaryAction()}
-              className="mt-4 flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-[#E7B66D] to-[#D4A054] px-4 text-[15px] font-semibold text-[#1A1408] shadow-[0_12px_32px_rgba(231,182,109,0.28)] transition hover:from-[#F0C77E] hover:to-[#E7B66D] disabled:opacity-50"
+              className="mt-4 flex h-12 w-full items-center justify-center gap-3 rounded-full bg-[#ffe500] px-4 text-[15px] font-semibold text-[#14110e] transition hover:bg-[#fff36a] disabled:opacity-50"
             >
               {confirmDeposit ? (
                 primaryLabel
@@ -488,7 +466,7 @@ export function WorkspaceTreasury({
               type="button"
               disabled={primaryDisabled}
               onClick={() => void onPrimaryAction()}
-              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#E7B66D] to-[#D4A054] px-4 text-[15px] font-semibold text-[#1A1408] shadow-[0_12px_32px_rgba(231,182,109,0.28)] transition hover:from-[#F0C77E] hover:to-[#E7B66D] disabled:opacity-50"
+              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#ffe500] px-4 text-[15px] font-semibold text-[#14110e] transition hover:bg-[#fff36a] disabled:opacity-50"
             >
               {primaryLabel}
               <ArrowRight className="size-4" strokeWidth={2.2} />
@@ -508,9 +486,9 @@ export function WorkspaceTreasury({
           ) : null}
         </section>
 
-        <div className="space-y-4">
-          <section className="ov-card p-4 sm:p-5">
-            <p className="text-[10px] font-semibold tracking-[0.14em] text-white/40 uppercase">
+        <div className="z-10 -mt-px flex min-w-0 flex-1 flex-col xl:mt-0 xl:-ml-px">
+          <section className="ov-card">
+            <p className="text-[10px] font-semibold tracking-[0.14em] text-[#c9b56a] uppercase">
               How privacy works
             </p>
             <ul className="mt-3 space-y-3">
@@ -520,12 +498,12 @@ export function WorkspaceTreasury({
             </ul>
           </section>
 
-          <section className="ov-card p-4 sm:p-5">
-            <p className="text-[10px] font-semibold tracking-[0.14em] text-white/40 uppercase">
+          <section className="ov-card z-10 -mt-px">
+            <p className="text-[10px] font-semibold tracking-[0.14em] text-[#c9b56a] uppercase">
               Recent activity
             </p>
             {activityCount === 0 ? (
-              <div className="mt-4 rounded-xl border border-white/10 bg-[#0a1426]/80 px-4 py-8 text-center">
+              <div className="mt-4 rounded-xl border border-[#C3D0E8]/35 bg-transparent px-4 py-8 text-center">
                 <FileText className="mx-auto size-8 text-white/25" strokeWidth={1.5} />
                 <p className="mt-3 text-sm font-medium text-white/55">No recent activity</p>
                 <p className="mt-1 text-xs text-white/35">Your transfers will appear here.</p>
@@ -538,6 +516,7 @@ export function WorkspaceTreasury({
           </section>
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -548,26 +527,28 @@ function MetricCard({
   hint,
   mono,
   action,
+  join = false,
 }: {
   label: string;
   value: string;
   hint?: ReactNode;
   mono?: boolean;
   action?: ReactNode;
+  join?: boolean;
 }) {
   return (
-    <div className="ov-card relative p-4 sm:p-5">
+    <div className={cn('ov-card relative min-w-0 flex-1', join && 'z-10 -mt-px lg:mt-0 lg:-ml-px')}>
       <Info
         className="absolute top-4 right-4 size-3.5 text-white/25"
         strokeWidth={1.75}
         aria-hidden
       />
-      <p className="text-[10px] font-semibold tracking-[0.14em] text-white/40 uppercase">
+      <p className="text-[10px] font-semibold tracking-[0.14em] text-[#c9b56a] uppercase">
         {label}
       </p>
       <p
         className={cn(
-          'mt-2 text-[clamp(22px,2.8vw,28px)] font-semibold tracking-tight text-white',
+          'dash-display mt-2 text-[clamp(1.6rem,2.8vw,2rem)] leading-none text-[#EEF4FF]',
           mono && 'font-mono text-[clamp(18px,2.2vw,22px)]',
         )}
       >
@@ -601,7 +582,7 @@ function MoveTabButton({
       className={cn(
         'inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[12px] font-medium transition',
         active
-          ? 'bg-[#E7B66D] text-[#1A1408] shadow-[0_4px_14px_rgba(231,182,109,0.25)]'
+          ? 'bg-white/[0.08] text-[#EEF4FF]'
           : 'text-white/55 hover:bg-white/[0.04] hover:text-white/80',
       )}
     >
@@ -621,8 +602,8 @@ function PrivacyRow({
   detail: string;
 }) {
   return (
-    <li className="flex items-start gap-3 rounded-lg border border-white/10 bg-[#0a1426]/60 px-3 py-2.5">
-      <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.04] text-[#8DA4CD]">
+    <li className="flex items-start gap-3 rounded-lg border border-[#C3D0E8]/35 bg-transparent px-3 py-2.5">
+      <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-[#C3D0E8]/35 bg-white/[0.04] text-[#8DA4CD]">
         <Icon className="size-3.5" strokeWidth={1.85} />
       </span>
       <span>

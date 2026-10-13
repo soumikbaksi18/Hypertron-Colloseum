@@ -19,8 +19,6 @@ import { money } from '../lib/format';
 import { ApiError } from '../lib/http';
 import { downloadAuditorKey, loadShieldKeys } from '../lib/shield-keys';
 import type { AuditorPayment } from '../lib/wallet';
-import type { WorkspaceView } from '../lib/workspaces';
-import { DashboardUtilities, type DashboardMode } from './chrome';
 import { cn } from './cn';
 
 function maskSecret(value: string): string {
@@ -34,19 +32,7 @@ function kindLabel(kind: AuditorPayment['kind']): string {
   return 'Private payment';
 }
 
-export function WorkspaceCompliance({
-  workspace,
-  searchPlaceholder,
-  identityTitle,
-  onModeChange,
-  breadcrumbVariant = 'workspace',
-}: {
-  workspace?: WorkspaceView;
-  searchPlaceholder: string;
-  identityTitle: string;
-  onModeChange?: (mode: DashboardMode) => void;
-  breadcrumbVariant?: 'workspace' | 'account';
-}) {
+export function WorkspaceCompliance() {
   const { session } = useWalletSession();
   const keys = loadShieldKeys();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,35 +81,14 @@ export function WorkspaceCompliance({
 
   return (
     <div className="dash-compliance flex w-full flex-col gap-4 pb-6">
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-        <nav className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px] text-white/45">
-          <span className="text-white/55">
-            {breadcrumbVariant === 'account' ? 'Account' : workspace?.name ?? 'Personal'}
-          </span>
-          <ChevronRight className="size-3 text-white/30" strokeWidth={2} />
-          <span className="text-white/55">Compliance</span>
-          <ChevronRight className="size-3 text-white/30" strokeWidth={2} />
-          <span className="font-medium text-white/80">Auditor</span>
-        </nav>
-        <div className="lg:justify-self-end">
-          <DashboardUtilities
-            searchPlaceholder={searchPlaceholder}
-            identityTitle={identityTitle}
-            mode="workspaces"
-            onModeChange={onModeChange}
-            density="regular"
-          />
-        </div>
-      </div>
-
       <div className="min-w-0">
-        <p className="text-[10px] font-semibold tracking-[0.16em] text-[#E7B66D] uppercase">
+        <p className="text-[10px] font-semibold tracking-[0.16em] text-[#c9b56a] uppercase">
           Disclosure
         </p>
-        <h1 className="mt-1 text-[clamp(22px,2.6vw,30px)] font-semibold tracking-tight text-white">
+        <h1 className="mt-1 dash-display text-[clamp(2.2rem,4vw,3.2rem)] leading-[0.96] tracking-[-0.035em] text-[#EEF4FF]">
           Auditor
         </h1>
-        <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-white/45">
+        <p className="mt-4 max-w-md text-sm leading-relaxed text-[#EEF4FF]/70">
           Share your viewing key to see who sent how much to whom. A viewing key cannot spend.
         </p>
       </div>
@@ -137,9 +102,10 @@ export function WorkspaceCompliance({
         </div>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
-        <form className="ov-card p-4 sm:p-5" onSubmit={(event) => void onOpen(event)}>
-          <p className="text-[10px] font-semibold tracking-[0.14em] text-white/40 uppercase">
+      <div className="flex flex-col">
+      <div className="flex flex-col xl:flex-row">
+        <form className="ov-card min-w-0 flex-1" onSubmit={(event) => void onOpen(event)}>
+          <p className="text-[10px] font-semibold tracking-[0.14em] text-[#c9b56a] uppercase">
             Paste a viewing key
           </p>
           <div className="relative mt-3">
@@ -148,13 +114,13 @@ export function WorkspaceCompliance({
               onChange={(event) => setPasted(event.target.value)}
               placeholder="0x… or drop an auditor JSON file"
               spellCheck={false}
-              className="min-h-[140px] w-full resize-y rounded-xl border border-white/10 bg-[#0a1426] px-4 py-3 pr-12 font-mono text-sm text-white outline-none placeholder:text-white/30 focus:border-white/25"
+              className="min-h-[140px] w-full resize-y rounded-xl border border-[#C3D0E8]/35 bg-transparent px-4 py-3 pr-12 font-mono text-sm text-white outline-none placeholder:text-white/30 focus:border-white/25"
             />
             <button
               type="button"
               aria-label="Upload auditor file"
               onClick={() => fileInputRef.current?.click()}
-              className="absolute right-3 bottom-3 inline-flex size-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white/45 transition hover:border-white/25 hover:text-white"
+              className="absolute right-3 bottom-3 inline-flex size-8 items-center justify-center rounded-lg border border-[#C3D0E8]/35 bg-white/[0.04] text-white/45 transition hover:border-white/25 hover:text-white"
             >
               <Upload className="size-4" strokeWidth={1.75} />
             </button>
@@ -175,7 +141,7 @@ export function WorkspaceCompliance({
             <button
               type="submit"
               disabled={busy}
-              className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#E7B66D] to-[#D4A054] px-5 text-sm font-semibold text-[#1A1408] shadow-[0_12px_32px_rgba(231,182,109,0.28)] transition hover:from-[#F0C77E] hover:to-[#E7B66D] disabled:opacity-50 sm:flex-none"
+              className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-[#ffe500] px-5 text-sm font-semibold text-[#14110e]  transition hover:bg-[#fff36a] disabled:opacity-50 sm:flex-none"
             >
               <Eye className="size-4" strokeWidth={2} />
               {busy ? 'Opening…' : 'Reveal payments'}
@@ -183,7 +149,7 @@ export function WorkspaceCompliance({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 text-sm font-medium text-white/75 transition hover:border-white/25 hover:text-white"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#C3D0E8]/35 bg-white/[0.04] px-5 text-sm font-medium text-white/75 transition hover:border-white/25 hover:text-white"
             >
               <Copy className="size-4" strokeWidth={1.75} />
               Upload file
@@ -192,14 +158,14 @@ export function WorkspaceCompliance({
         </form>
 
         {keys ? (
-          <section className="ov-card p-4 sm:p-5">
+          <section className="ov-card z-10 -mt-px min-w-0 flex-1 xl:mt-0 xl:-ml-px">
             <div className="flex items-center gap-2">
-              <p className="text-[10px] font-semibold tracking-[0.14em] text-white/40 uppercase">
+              <p className="text-[10px] font-semibold tracking-[0.14em] text-[#c9b56a] uppercase">
                 Your viewing key
               </p>
               <Info className="size-3.5 text-white/30" strokeWidth={1.75} aria-hidden />
             </div>
-            <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/10 bg-[#0a1426] px-3 py-2.5">
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-[#C3D0E8]/35 bg-transparent px-3 py-2.5">
               <code className="min-w-0 flex-1 truncate font-mono text-sm text-white">
                 {revealed ? keys.viewSecret : maskSecret(keys.viewSecret)}
               </code>
@@ -207,7 +173,7 @@ export function WorkspaceCompliance({
                 type="button"
                 aria-label="Copy viewing key"
                 onClick={() => void copyViewingKey()}
-                className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-white/10 text-white/45 transition hover:border-white/25 hover:text-white"
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-[#C3D0E8]/35 text-white/45 transition hover:border-white/25 hover:text-white"
               >
                 {copied === 'key' ? (
                   <Check className="size-4 text-emerald-300" strokeWidth={2} />
@@ -248,7 +214,7 @@ export function WorkspaceCompliance({
             </ul>
           </section>
         ) : (
-          <section className="ov-card border-dashed p-4 sm:p-5">
+          <section className="ov-card z-10 -mt-px min-w-0 flex-1 border-dashed xl:mt-0 xl:-ml-px">
             <p className="text-sm font-medium text-white">No viewing key on this browser</p>
             <p className="mt-2 text-xs leading-relaxed text-white/45">
               You can still paste someone else’s key. To share yours, sign in here again or import
@@ -259,11 +225,11 @@ export function WorkspaceCompliance({
       </div>
 
       {payments ? (
-        <section className="ov-card p-4 sm:p-5">
-          <p className="text-[10px] font-semibold tracking-[0.14em] text-white/40 uppercase">
+        <section className="ov-card z-10 -mt-px">
+          <p className="text-[10px] font-semibold tracking-[0.14em] text-[#c9b56a] uppercase">
             Payments
           </p>
-          <h2 className="mt-2 text-lg font-semibold text-white">
+          <h2 className="dash-display mt-2 text-[1.6rem] leading-none text-[#EEF4FF]">
             {booksFor ? `Books for ${booksFor}` : 'Opened payments'}
           </h2>
           {payments.length === 0 ? (
@@ -271,7 +237,7 @@ export function WorkspaceCompliance({
               Nothing decrypted. The key may be wrong, or those notes never got a blob.
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-white/10">
+            <ul className="mt-4 divide-y divide-[#C3D0E8]/25">
               {payments.map((row) => (
                 <li key={`${row.commitment}-${row.leaf_index}`} className="py-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -293,7 +259,7 @@ export function WorkspaceCompliance({
                         </p>
                       ) : null}
                     </div>
-                    <p className="text-base font-semibold tracking-tight text-white">
+                    <p className="dash-display text-[1.35rem] leading-none text-[#EEF4FF]">
                       {money(row.amount, 'USDC')}
                     </p>
                   </div>
@@ -304,9 +270,9 @@ export function WorkspaceCompliance({
         </section>
       ) : null}
 
-      <section className="ov-card flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-5">
+      <section className="ov-card z-10 -mt-px flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-[#8DA4CD]">
+          <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#C3D0E8]/35 bg-white/[0.04] text-[#8DA4CD]">
             <Shield className="size-4" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
@@ -321,12 +287,13 @@ export function WorkspaceCompliance({
           href="https://docs.solana.com"
           target="_blank"
           rel="noreferrer"
-          className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-[12px] font-medium text-white/75 transition hover:border-white/25 hover:text-white"
+          className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#C3D0E8]/35 bg-white/[0.04] px-4 text-[12px] font-medium text-white/75 transition hover:border-white/25 hover:text-white"
         >
           Learn more
           <ExternalLink className="size-3.5" strokeWidth={1.75} />
         </a>
       </section>
+      </div>
     </div>
   );
 }
@@ -352,11 +319,11 @@ function ActionRow({
         className={cn(
           'flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition',
           active
-            ? 'border-[#4A63BE]/45 bg-[#4A63BE]/10'
-            : 'border-white/10 bg-[#0a1426]/60 hover:border-white/20',
+            ? 'border-[#c9b56a]/45 bg-[#c9b56a]/10'
+            : 'border-[#C3D0E8]/35 bg-transparent hover:border-[#C3D0E8]/55',
         )}
       >
-        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-[#8DA4CD]">
+        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-[#C3D0E8]/35 bg-white/[0.04] text-[#8DA4CD]">
           <Icon className="size-4" strokeWidth={1.75} />
         </span>
         <span className="min-w-0 flex-1">

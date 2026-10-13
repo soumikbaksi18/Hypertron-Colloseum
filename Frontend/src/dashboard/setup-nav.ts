@@ -1,6 +1,6 @@
 import {
-  BriefcaseBusiness,
   Code2,
+  CreditCard,
   Landmark,
   LayoutGrid,
   Receipt,
@@ -10,13 +10,19 @@ import {
 
 import type { DashboardNavItem } from './chrome';
 
-/** Inactive workspace nav shown during account / workspace setup. */
-export const SETUP_PREVIEW_NAV: DashboardNavItem[] = [
+/** Tools inside a subscribed workspace. The app root is /app, not a nav item. */
+export const APP_NAV: DashboardNavItem[] = [
   { id: 'overview', label: 'Overview', icon: LayoutGrid },
   { id: 'payments', label: 'Payments', icon: Receipt },
   { id: 'treasury', label: 'Treasury', icon: Landmark },
   { id: 'developers', label: 'Developers', icon: Code2 },
   { id: 'compliance', label: 'Compliance', icon: ShieldCheck },
-  { id: 'workspaces', label: 'Workspaces', icon: BriefcaseBusiness },
+  { id: 'billing', label: 'Billing & Plans', icon: CreditCard },
   { id: 'settings', label: 'Settings', icon: Settings, dividerBefore: true },
+];
+
+/** Account nav on the app root. Workspace tools appear only after you open one. */
+export const HUB_NAV: DashboardNavItem[] = [
+  { id: 'billing', label: 'Billing & Plans', icon: CreditCard },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ];

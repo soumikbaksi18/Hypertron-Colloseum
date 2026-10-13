@@ -28,6 +28,12 @@ export type OverviewAttention = {
   detail: string;
 };
 
+export type OverviewActivity = {
+  createdAt: string | null;
+  paidAt: string | null;
+  amountMinor: number;
+};
+
 export type OverviewStats = {
   availableBalance: string;
   pendingVolume: string;
@@ -50,6 +56,7 @@ export type OverviewStats = {
   attention: OverviewAttention[];
   recentPayments: OverviewPaymentRow[];
   paymentLinks: OverviewLinkRow[];
+  activity: OverviewActivity[];
 };
 
 function minorSum(links: PaymentLink[]) {
@@ -154,5 +161,10 @@ export async function loadOverviewStats(payoutAddress: string | null): Promise<O
     attention,
     recentPayments,
     paymentLinks,
+    activity: links.map((link) => ({
+      createdAt: link.created_at ?? link.paid_at ?? null,
+      paidAt: link.status === 'paid' ? link.paid_at ?? link.created_at ?? null : null,
+      amountMinor: Number(link.amount) || 0,
+    })),
   };
 }

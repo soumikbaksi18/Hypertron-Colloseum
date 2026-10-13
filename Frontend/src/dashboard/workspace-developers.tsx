@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   BookOpen,
-  ChevronRight,
   Copy,
   ExternalLink,
   MoreHorizontal,
@@ -11,8 +10,6 @@ import {
 
 import { developerKeysApi, type DeveloperKey } from '../lib/developer-keys';
 import { ApiError, BASE_URL } from '../lib/http';
-import type { WorkspaceView } from '../lib/workspaces';
-import { DashboardUtilities, type DashboardMode } from './chrome';
 import { cn } from './cn';
 
 const KEY_STORAGE = 'hypertron.agentKey';
@@ -83,17 +80,7 @@ intent = res.json()`,
   };
 }
 
-export function WorkspaceDevelopers({
-  workspace,
-  searchPlaceholder,
-  identityTitle,
-  onModeChange,
-}: {
-  workspace: WorkspaceView;
-  searchPlaceholder: string;
-  identityTitle: string;
-  onModeChange?: (mode: DashboardMode) => void;
-}) {
+export function WorkspaceDevelopers() {
   const [keys, setKeys] = useState<DeveloperKey[]>([]);
   const [secret, setSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -163,58 +150,41 @@ export function WorkspaceDevelopers({
 
   return (
     <div className="dash-developers flex w-full flex-col gap-4 pb-6">
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-        <nav className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px] text-white/45">
-          <span className="text-white/55">{workspace.name}</span>
-          <ChevronRight className="size-3 text-white/30" strokeWidth={2} />
-          <span className="font-medium text-white/80">Developers</span>
-        </nav>
-        <div className="lg:justify-self-end">
-          <DashboardUtilities
-            searchPlaceholder={searchPlaceholder}
-            identityTitle={identityTitle}
-            mode="workspaces"
-            onModeChange={onModeChange}
-            density="regular"
-          />
-        </div>
-      </div>
-
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[clamp(22px,2.6vw,30px)] font-semibold tracking-tight text-white">
+          <h1 className="dash-display text-[clamp(2.2rem,4vw,3.2rem)] leading-[0.96] tracking-[-0.035em] text-[#EEF4FF]">
             Developers
           </h1>
-          <p className="mt-1.5 text-[13px] text-white/45">
-            Create an API key and start accepting payments with Hypertron.
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-[#EEF4FF]/70">
+            Create an API key, then copy a sample. Test and Live only change the host in that sample.
           </p>
         </div>
 
-        <div className="inline-flex rounded-full border border-white/10 bg-[#0a1426] p-1">
+        <div className="inline-flex rounded-xl border border-[#C3D0E8]/35 bg-transparent p-1">
           <button
             type="button"
             onClick={() => setApiMode('test')}
             className={cn(
-              'inline-flex h-8 items-center gap-1.5 rounded-full px-3.5 text-[12px] font-semibold transition',
+              'inline-flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-[12px] transition',
               apiMode === 'test'
-                ? 'bg-[#E7B66D] text-[#1A1408] shadow-[0_4px_14px_rgba(231,182,109,0.25)]'
+                ? 'bg-white/[0.08] text-[#EEF4FF]'
                 : 'text-white/55 hover:text-white/80',
             )}
           >
             <Sparkles className="size-3.5" strokeWidth={2} />
-            Test Mode
+            Test
           </button>
           <button
             type="button"
             onClick={() => setApiMode('live')}
             className={cn(
-              'inline-flex h-8 items-center rounded-full px-3.5 text-[12px] font-semibold transition',
+              'inline-flex h-9 items-center rounded-lg px-3.5 text-[12px] transition',
               apiMode === 'live'
-                ? 'bg-[#E7B66D] text-[#1A1408] shadow-[0_4px_14px_rgba(231,182,109,0.25)]'
+                ? 'bg-white/[0.08] text-[#EEF4FF]'
                 : 'text-white/55 hover:text-white/80',
             )}
           >
-            Live Mode
+            Live
           </button>
         </div>
       </div>
@@ -229,8 +199,8 @@ export function WorkspaceDevelopers({
       ) : null}
 
       {secret ? (
-        <div className="rounded-xl border border-[#E7B66D]/35 bg-[#E7B66D]/10 px-4 py-3">
-          <p className="text-[10px] font-semibold tracking-[0.12em] text-[#F3D28F] uppercase">
+        <div className="rounded-xl border border-[#c9b56a]/35 bg-[#c9b56a]/10 px-4 py-3">
+          <p className="text-[10px] font-semibold tracking-[0.12em] text-[#c9b56a] uppercase">
             Copy this key once
           </p>
           <code className="mt-2 block break-all font-mono text-sm text-white">{secret}</code>
@@ -240,17 +210,18 @@ export function WorkspaceDevelopers({
         </div>
       ) : null}
 
+      <div className="flex flex-col">
       <section className="ov-card overflow-hidden">
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 px-4 py-4 sm:px-5">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#C3D0E8]/35 px-4 py-4 sm:px-5">
           <div>
-            <h2 className="text-sm font-semibold text-white">API Keys</h2>
+            <h2 className="dash-display text-[1.45rem] leading-none text-[#EEF4FF]">API Keys</h2>
             <p className="mt-1 text-xs text-white/45">Use this key to authenticate your requests.</p>
           </div>
           <button
             type="button"
             disabled={busy}
             onClick={() => void createKey()}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#F3D28F]/60 bg-[#E7B66D] px-4 text-[12px] font-semibold text-[#1A1408] transition hover:bg-[#F0C77E] disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#c9b56a]/60 bg-[#ffe500] px-4 text-[12px] font-semibold text-[#14110e] transition hover:bg-[#fff36a] disabled:opacity-50"
           >
             <Plus className="size-3.5" strokeWidth={2.2} />
             {busy ? 'Creating…' : 'Create key'}
@@ -262,7 +233,7 @@ export function WorkspaceDevelopers({
             No keys yet. Create one to integrate Hypertron.
           </p>
         ) : (
-          <ul className="divide-y divide-white/10">
+          <ul className="divide-y divide-[#C3D0E8]/25">
             {keys.map((key) => (
               <li
                 key={key.id}
@@ -278,14 +249,14 @@ export function WorkspaceDevelopers({
                       setCopiedKeyId(key.id);
                       window.setTimeout(() => setCopiedKeyId(null), 1500);
                     }}
-                    className="inline-flex size-7 items-center justify-center rounded-md border border-white/10 text-white/45 transition hover:border-white/25 hover:text-white"
+                    className="inline-flex size-7 items-center justify-center rounded-md border border-[#C3D0E8]/35 text-white/45 transition hover:border-white/25 hover:text-white"
                   >
                     <Copy className="size-3.5" strokeWidth={1.75} />
                   </button>
                   {copiedKeyId === key.id ? (
                     <span className="text-[10px] text-emerald-300/80">Copied</span>
                   ) : null}
-                  <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] text-white/55">
+                  <span className="rounded-md border border-[#C3D0E8]/35 bg-white/[0.04] px-2 py-0.5 text-[11px] text-white/55">
                     {key.agent_label}
                   </span>
                   {key.active ? (
@@ -304,12 +275,12 @@ export function WorkspaceDevelopers({
                     type="button"
                     aria-label="Key actions"
                     onClick={() => setMenuKeyId((current) => (current === key.id ? null : key.id))}
-                    className="inline-flex size-8 items-center justify-center rounded-lg border border-white/10 text-white/45 transition hover:border-white/25 hover:text-white"
+                    className="inline-flex size-8 items-center justify-center rounded-lg border border-[#C3D0E8]/35 text-white/45 transition hover:border-white/25 hover:text-white"
                   >
                     <MoreHorizontal className="size-4" />
                   </button>
                   {menuKeyId === key.id && key.active ? (
-                    <div className="absolute top-[calc(100%+6px)] right-0 z-20 min-w-[140px] overflow-hidden rounded-xl border border-white/10 bg-[#10182e] py-1 shadow-[0_16px_40px_rgba(0,0,0,0.45)]">
+                    <div className="absolute top-[calc(100%+6px)] right-0 z-20 min-w-[140px] overflow-hidden rounded-xl border border-[#C3D0E8]/35 bg-[#03080b] py-1 shadow-[0_16px_40px_rgba(0,0,0,0.45)]">
                       <button
                         type="button"
                         className="block w-full px-3.5 py-2 text-left text-sm text-rose-200 hover:bg-white/[0.06]"
@@ -326,10 +297,10 @@ export function WorkspaceDevelopers({
         )}
       </section>
 
-      <section className="ov-card overflow-hidden">
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 px-4 py-4 sm:px-5">
+      <section className="ov-card z-10 -mt-px overflow-hidden">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#C3D0E8]/35 px-4 py-4 sm:px-5">
           <div>
-            <h2 className="text-sm font-semibold text-white">Use from your app</h2>
+            <h2 className="dash-display text-[1.45rem] leading-none text-[#EEF4FF]">Use from your app</h2>
             <p className="mt-1 text-xs text-white/45">
               Send a payment intent to your Hypertron API.
             </p>
@@ -341,14 +312,14 @@ export function WorkspaceDevelopers({
               setCopiedCode(true);
               window.setTimeout(() => setCopiedCode(false), 1500);
             }}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/10 px-3 text-[11px] font-medium text-white/65 transition hover:border-white/25 hover:text-white"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#C3D0E8]/35 px-3 text-[11px] font-medium text-white/65 transition hover:border-white/25 hover:text-white"
           >
             <Copy className="size-3.5" strokeWidth={1.75} />
             {copiedCode ? 'Copied' : 'Copy'}
           </button>
         </div>
 
-        <div className="flex gap-4 border-b border-white/10 px-4 sm:px-5">
+        <div className="flex gap-4 border-b border-[#C3D0E8]/35 px-4 sm:px-5">
           {(
             [
               ['curl', 'cURL'],
@@ -363,7 +334,7 @@ export function WorkspaceDevelopers({
               className={cn(
                 'border-b-2 py-3 text-[12px] font-medium transition',
                 codeTab === id
-                  ? 'border-[#E7B66D] text-[#F3D28F]'
+                  ? 'border-[#c9b56a] text-[#c9b56a]'
                   : 'border-transparent text-white/45 hover:text-white/70',
               )}
             >
@@ -372,16 +343,16 @@ export function WorkspaceDevelopers({
           ))}
         </div>
 
-        <div className="overflow-x-auto bg-[#060b14] px-4 py-4 sm:px-5">
+        <div className="overflow-x-auto bg-[#03080b] px-4 py-4 sm:px-5">
           <pre className="font-mono text-[12px] leading-relaxed text-white/80">
             <CodeBlock source={activeSample} />
           </pre>
         </div>
       </section>
 
-      <section className="ov-card flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-5">
+      <section className="ov-card z-10 -mt-px flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-5">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-[#8DA4CD]">
+          <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#C3D0E8]/35 bg-white/[0.04] text-[#8DA4CD]">
             <BookOpen className="size-4" strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
@@ -395,12 +366,13 @@ export function WorkspaceDevelopers({
           href={`${API_ORIGIN}/docs`}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-[12px] font-medium text-white/75 transition hover:border-white/25 hover:text-white"
+          className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#C3D0E8]/35 bg-white/[0.04] px-4 text-[12px] font-medium text-white/75 transition hover:border-white/25 hover:text-white"
         >
           View documentation
           <ExternalLink className="size-3.5" strokeWidth={1.75} />
         </a>
       </section>
+      </div>
     </div>
   );
 }
@@ -431,7 +403,7 @@ function highlightLine(line: string) {
     const className = token.startsWith('"') || token.startsWith("'")
       ? 'text-emerald-300/90'
       : /^\d+$/.test(token)
-        ? 'text-[#F3D28F]'
+        ? 'text-[#c9b56a]'
         : 'text-[#9BB6FF]';
     parts.push(
       <span key={key} className={className}>

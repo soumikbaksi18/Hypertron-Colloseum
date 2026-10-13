@@ -2,7 +2,6 @@ import QRCode from 'qrcode';
 import {
   useCallback,
   useEffect,
-  useMemo,
   useState,
   type FormEvent,
   type ReactNode,
@@ -11,12 +10,8 @@ import {
   ArrowRight,
   Calendar,
   ChevronDown,
-  ChevronRight,
   FileText,
-  Link2,
   UserRound,
-  Vault,
-  Wallet,
 } from 'lucide-react';
 
 import { useWalletSession } from '../context/WalletContext';
@@ -24,8 +19,6 @@ import { ApiError } from '../lib/http';
 import { money } from '../lib/format';
 import { payUrl, paymentLinksApi, type PaymentLink } from '../lib/payment-links';
 import type { WorkspaceView } from '../lib/workspaces';
-import { DashboardUtilities, type DashboardMode } from './chrome';
-import { HypertronLogoMark } from './logo-mark';
 import { cn } from './cn';
 
 const PRESET_AMOUNTS = ['0.1', '0.5', '1', '5', '10'] as const;
@@ -38,8 +31,6 @@ const EXPIRY_OPTIONS = [
   { id: '90', label: '90 days' },
   { id: 'never', label: 'No expiry' },
 ] as const;
-
-type SettlementMode = 'vault' | 'wallet';
 
 function formatDisplayAmount(raw: string): string {
   const value = Number(raw);
@@ -67,7 +58,7 @@ function PaymentQr({ url }: { url: string }) {
       margin: 0,
       errorCorrectionLevel: 'M',
       color: {
-        dark: '#E7B66D',
+        dark: '#ffe500',
         light: '#0b1629',
       },
     })
@@ -83,7 +74,7 @@ function PaymentQr({ url }: { url: string }) {
   }, [url]);
 
   return (
-    <div className="mx-auto flex size-[104px] items-center justify-center rounded-xl border border-[#E7B66D]/30 bg-[#0b1629] p-2 ring-1 ring-[#E7B66D]/15">
+    <div className="mx-auto flex size-[104px] items-center justify-center rounded-xl border border-[#c9b56a]/30 bg-[#03080b] p-2 ring-1 ring-[#c9b56a]/15">
       {dataUrl ? (
         <img
           src={dataUrl}
@@ -100,22 +91,14 @@ function PaymentQr({ url }: { url: string }) {
 
 export function WorkspacePayments({
   workspace,
-  searchPlaceholder,
-  identityTitle,
-  onModeChange,
 }: {
   workspace: WorkspaceView;
-  searchPlaceholder: string;
-  identityTitle: string;
-  onModeChange?: (mode: DashboardMode) => void;
 }) {
   const { session } = useWalletSession();
   const [amount, setAmount] = useState('5');
   const [purpose, setPurpose] = useState<(typeof PURPOSES)[number]>('Invoice');
   const [customer, setCustomer] = useState('');
   const [expiry, setExpiry] = useState<(typeof EXPIRY_OPTIONS)[number]['id']>('30');
-  const [settlement, setSettlement] = useState<SettlementMode>('vault');
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [purposeOpen, setPurposeOpen] = useState(false);
   const [expiryOpen, setExpiryOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -134,20 +117,8 @@ export function WorkspacePayments({
   }, [refresh]);
 
   const displayAmount = formatDisplayAmount(amount);
-  const amountMinor = Math.round(Number(amount) * 1_000_000);
-
-  const qrPayUrl = useMemo(() => {
-    const linked =
-      (createdId ? links.find((item) => item.id === createdId) : null) ?? links[0] ?? null;
-    if (linked) return payUrl(linked.id, linked.url);
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const params = new URLSearchParams({
-      amount: String(amountMinor),
-      purpose,
-      workspace: workspace.id,
-    });
-    return `${origin}/pay/preview?${params.toString()}`;
-  }, [amountMinor, createdId, links, purpose, workspace.id]);
+  const readyLink = createdId ? links.find((item) => item.id === createdId) ?? null : null;
+  const readyUrl = readyLink ? payUrl(readyLink.id, readyLink.url) : null;
 
   async function onCreate(event: FormEvent) {
     event.preventDefault();
@@ -171,6 +142,7 @@ export function WorkspacePayments({
       setCreatedId(created.id);
       await navigator.clipboard.writeText(payUrl(created.id, created.url)).catch(() => undefined);
       setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not create this payment link.');
     } finally {
@@ -185,28 +157,11 @@ export function WorkspacePayments({
 
   return (
     <div className="dash-payments flex w-full flex-col gap-4 pb-4">
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-        <nav className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px] text-white/45">
-          <span className="text-white/55">Payments</span>
-          <ChevronRight className="size-3 text-white/30" strokeWidth={2} />
-          <span className="font-medium text-white/80">Create Link</span>
-        </nav>
-        <div className="lg:justify-self-end">
-          <DashboardUtilities
-            searchPlaceholder={searchPlaceholder}
-            identityTitle={identityTitle}
-            mode="workspaces"
-            onModeChange={onModeChange}
-            density="regular"
-          />
-        </div>
-      </div>
-
       <div className="min-w-0">
-        <h1 className="text-[clamp(22px,2.6vw,30px)] font-semibold tracking-tight text-white">
+        <h1 className="dash-display text-[clamp(2.2rem,4vw,3.2rem)] leading-[0.96] tracking-[-0.035em] text-[#EEF4FF]">
           Create Payment Link
         </h1>
-        <p className="mt-1.5 text-[13px] text-white/45">
+        <p className="mt-4 max-w-md text-sm leading-relaxed text-[#EEF4FF]/70">
           Get paid to your Hypertron ID. No wallet address needed.
         </p>
       </div>
@@ -220,18 +175,14 @@ export function WorkspacePayments({
         </div>
       ) : null}
 
-      {createdId ? (
-        <div className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-          Payment link created.{copied ? ' Link copied to clipboard.' : ''}
-        </div>
-      ) : null}
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(300px,0.95fr)] xl:items-start">
-        <form className="space-y-4" onSubmit={(event) => void onCreate(event)}>
-          <div className="ov-card p-4 sm:p-5">
+      <div className="flex flex-col">
+      <div className="flex flex-col xl:flex-row">
+        <form className="flex min-w-0 flex-[1.15] flex-col" onSubmit={(event) => void onCreate(event)}>
+          <div className="ov-card">
+            <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">Amount</p>
             <label className="block">
               <span className="sr-only">Amount</span>
-              <div className="flex items-stretch gap-2 rounded-xl border border-white/10 bg-[#0a1426] p-1.5">
+              <div className="flex items-stretch gap-2 rounded-xl border border-[#C3D0E8]/35 bg-transparent p-1.5">
                 <input
                   value={amount}
                   onChange={(event) => setAmount(event.target.value)}
@@ -239,12 +190,8 @@ export function WorkspacePayments({
                   className="min-w-0 flex-1 bg-transparent px-3 py-3 text-[clamp(28px,4vw,36px)] font-medium tracking-tight text-white outline-none placeholder:text-white/25"
                   placeholder="0.00"
                 />
-                <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#101c33] px-3 text-sm font-medium text-white">
-                  <span className="inline-flex size-5 items-center justify-center rounded-full bg-[#2775CA] text-[9px] font-bold text-white">
-                    $
-                  </span>
+                <div className="flex items-center rounded-lg border border-[#C3D0E8]/35 px-3 text-sm text-[#C3D0E8]">
                   USDC
-                  <ChevronDown className="size-3.5 text-white/40" />
                 </div>
               </div>
             </label>
@@ -260,8 +207,8 @@ export function WorkspacePayments({
                     className={cn(
                       'inline-flex h-8 min-w-[42px] items-center justify-center rounded-lg border px-3 text-[12px] font-medium transition',
                       active
-                        ? 'border-[#E7B66D]/70 bg-[#E7B66D]/12 text-[#F3D28F]'
-                        : 'border-white/10 bg-white/[0.03] text-white/55 hover:border-white/20 hover:text-white/80',
+                        ? 'border-[#c9b56a]/70 bg-[#c9b56a]/12 text-[#c9b56a]'
+                        : 'border-[#C3D0E8]/35 bg-white/[0.03] text-white/55 hover:border-[#C3D0E8]/55 hover:text-white/80',
                     )}
                   >
                     {preset}
@@ -271,13 +218,13 @@ export function WorkspacePayments({
             </div>
           </div>
 
-          <div className="ov-card divide-y divide-white/10">
+          <div className={cn('ov-card z-10 -mt-px space-y-4', (purposeOpen || expiryOpen) && 'z-30')}>
             <FieldRow label="Purpose">
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setPurposeOpen((open) => !open)}
-                  className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-white/10 bg-[#0a1426] px-3 text-left text-sm text-white transition hover:border-white/20"
+                  className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-[#C3D0E8]/35 bg-transparent px-3 text-left text-sm text-white transition hover:border-[#C3D0E8]/55"
                 >
                   <span className="inline-flex items-center gap-2">
                     <FileText className="size-4 text-[#8DA4CD]" strokeWidth={1.75} />
@@ -286,7 +233,7 @@ export function WorkspacePayments({
                   <ChevronDown className="size-4 text-white/40" />
                 </button>
                 {purposeOpen ? (
-                  <div className="absolute top-[calc(100%+6px)] right-0 left-0 z-20 overflow-hidden rounded-xl border border-white/10 bg-[#10182e] py-1 shadow-[0_16px_40px_rgba(0,0,0,0.45)]">
+                  <div className="absolute top-[calc(100%+6px)] right-0 left-0 z-20 overflow-hidden rounded-xl border border-[#C3D0E8]/35 bg-[#03080b] py-1 shadow-[0_16px_40px_rgba(0,0,0,0.45)]">
                     {PURPOSES.map((option) => (
                       <button
                         key={option}
@@ -316,7 +263,7 @@ export function WorkspacePayments({
                   value={customer}
                   onChange={(event) => setCustomer(event.target.value)}
                   placeholder="Name, email or Hypertron ID"
-                  className="h-11 w-full rounded-lg border border-white/10 bg-[#0a1426] pr-10 pl-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-white/25"
+                  className="h-11 w-full rounded-lg border border-[#C3D0E8]/35 bg-transparent pr-10 pl-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-white/25"
                 />
                 <UserRound
                   className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-white/35"
@@ -330,7 +277,7 @@ export function WorkspacePayments({
                 <button
                   type="button"
                   onClick={() => setExpiryOpen((open) => !open)}
-                  className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-white/10 bg-[#0a1426] px-3 text-left text-sm text-white transition hover:border-white/20"
+                  className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-[#C3D0E8]/35 bg-transparent px-3 text-left text-sm text-white transition hover:border-[#C3D0E8]/55"
                 >
                   <span className="inline-flex items-center gap-2">
                     <Calendar className="size-4 text-[#8DA4CD]" strokeWidth={1.75} />
@@ -339,7 +286,7 @@ export function WorkspacePayments({
                   <ChevronDown className="size-4 text-white/40" />
                 </button>
                 {expiryOpen ? (
-                  <div className="absolute top-[calc(100%+6px)] right-0 left-0 z-20 overflow-hidden rounded-xl border border-white/10 bg-[#10182e] py-1 shadow-[0_16px_40px_rgba(0,0,0,0.45)]">
+                  <div className="absolute top-[calc(100%+6px)] right-0 left-0 z-20 overflow-hidden rounded-xl border border-[#C3D0E8]/35 bg-[#03080b] py-1 shadow-[0_16px_40px_rgba(0,0,0,0.45)]">
                     {EXPIRY_OPTIONS.map((option) => (
                       <button
                         key={option.id}
@@ -362,125 +309,70 @@ export function WorkspacePayments({
                 ) : null}
               </div>
             </FieldRow>
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={busy}
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#ffe500] text-[15px] font-semibold text-[#14110e] transition hover:bg-[#fff36a] disabled:opacity-50"
+              >
+                {busy ? 'Creating…' : 'Create Payment Link'}
+                <ArrowRight className="size-4" strokeWidth={2.2} />
+              </button>
+            </div>
           </div>
-
-          <button
-            type="submit"
-            disabled={busy}
-            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#E7B66D] to-[#D4A054] text-[15px] font-semibold text-[#1A1408] shadow-[0_12px_32px_rgba(231,182,109,0.28)] transition hover:from-[#F0C77E] hover:to-[#E7B66D] disabled:opacity-50"
-          >
-            {busy ? 'Creating…' : 'Create Payment Link'}
-            <ArrowRight className="size-4" strokeWidth={2.2} />
-          </button>
         </form>
 
-        <div className="space-y-4">
-          <div className="ov-card overflow-hidden p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <HypertronLogoMark size={22} tone="plain" />
-                <span className="text-[13px] font-semibold text-white">Hypertron</span>
+        <aside className="ov-card z-10 -mt-px flex min-w-0 flex-1 flex-col xl:mt-0 xl:-ml-px">
+          <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">
+            {readyUrl ? 'Link ready' : 'Payer sees'}
+          </p>
+          <p className="mt-3 text-[11px] tracking-[0.14em] text-[#C3D0E8]/55 uppercase">{purpose}</p>
+          <p className="dash-display mt-2 text-[clamp(2rem,3vw,2.6rem)] leading-none text-[#EEF4FF]">
+            {displayAmount}{' '}
+            <span className="text-[1.1rem] text-[#C3D0E8]/55">USDC</span>
+          </p>
+          <p className="mt-3 text-sm text-[#C3D0E8]/70">
+            Paid to {workspace.name}.
+            {customer.trim() ? ` For ${customer.trim()}.` : ''}{' '}
+            {expiryLabel === 'No expiry' ? 'Does not expire.' : `Expires in ${expiryLabel.toLowerCase()}.`}
+          </p>
+
+          {readyUrl ? (
+            <div className="mt-5">
+              <code className="block break-all rounded-xl border border-[#C3D0E8]/35 px-3 py-3 font-mono text-xs text-[#EEF4FF]">
+                {readyUrl}
+              </code>
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(readyUrl);
+                  setCopied(true);
+                  window.setTimeout(() => setCopied(false), 1500);
+                }}
+                className="mt-3 inline-flex h-10 items-center rounded-full border border-[#C3D0E8]/45 px-4 text-sm text-[#EEF4FF] transition hover:border-[#C3D0E8]/70"
+              >
+                {copied ? 'Copied' : 'Copy link'}
+              </button>
+              <div className="mt-5">
+                <PaymentQr url={readyUrl} />
               </div>
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-white/55">
-                Secure · Private
-              </span>
             </div>
-
-            <div className="mt-5 flex items-start gap-3">
-              <span className="inline-flex size-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-[#8DA4CD]">
-                <FileText className="size-4" strokeWidth={1.75} />
-              </span>
-              <div>
-                <p className="text-[11px] font-medium tracking-wide text-white/45 uppercase">
-                  {purpose}
-                </p>
-                <p className="mt-1 text-[clamp(26px,3vw,32px)] font-semibold tracking-tight text-white">
-                  {displayAmount}{' '}
-                  <span className="text-[18px] font-medium text-white/55">USDC</span>
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              disabled
-              className="mt-5 flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-[#AB9FF2] px-4 shadow-[0_8px_24px_rgba(171,159,242,0.35)]"
-            >
-              <img
-                src="/media/phantom-ghost.png"
-                alt=""
-                aria-hidden
-                className="size-7 shrink-0 object-contain"
-                draggable={false}
-              />
-              <span className="text-[15px] font-semibold tracking-tight text-[#1B1340]">
-                Pay with Phantom
-              </span>
-            </button>
-
-            <p className="mt-4 text-center text-[11px] text-white/35">or scan</p>
-            <div className="mt-2 flex justify-center">
-              <PaymentQr url={qrPayUrl} />
-            </div>
-          </div>
-
-          <div className="ov-card p-1.5">
-            <SettlementOption
-              active={settlement === 'vault'}
-              onSelect={() => setSettlement('vault')}
-              icon={Vault}
-              title="Hypertron Vault (Private)"
-              description="Keeps sender private in the pool."
-            />
-            <SettlementOption
-              active={settlement === 'wallet'}
-              onSelect={() => setSettlement('wallet')}
-              icon={Wallet}
-              title="Direct to Wallet (Public)"
-              description="Visible on-chain."
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setAdvancedOpen((open) => !open)}
-            className="ov-card flex w-full items-center justify-between px-4 py-3.5 text-left text-sm font-medium text-white/70 transition hover:text-white"
-          >
-            Advanced Options
-            <ChevronDown
-              className={cn('size-4 text-white/40 transition', advancedOpen && 'rotate-180')}
-            />
-          </button>
-          {advancedOpen ? (
-            <div className="ov-card space-y-3 px-4 py-4 text-sm text-white/55">
-              <p>
-                Settlement preview:{' '}
-                <span className="text-white/80">
-                  {settlement === 'vault' ? 'Shielded pool credit' : 'Public wallet deposit'}
-                </span>
-              </p>
-              <p>
-                Expires: <span className="text-white/80">{expiryLabel}</span>
-              </p>
-              <p className="font-mono text-xs text-white/40">
-                Preview amount: {Number.isFinite(amountMinor) ? money(String(amountMinor)) : '—'}
-              </p>
-            </div>
-          ) : null}
-        </div>
+          ) : (
+            <p className="mt-5 text-sm leading-6 text-[#C3D0E8]/55">
+              Create the link to copy a URL. The QR appears after that, and it opens this payment.
+            </p>
+          )}
+        </aside>
       </div>
 
       {links.length > 0 ? (
-        <section className="ov-card overflow-hidden">
-          <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-            <p className="text-[10px] font-semibold tracking-[0.14em] text-white/40 uppercase">
-              Recent payment links
-            </p>
-            <Link2 className="size-4 text-white/35" strokeWidth={1.75} />
+        <section className="ov-card z-10 -mt-px overflow-hidden">
+          <div className="border-b border-[#C3D0E8]/35 pb-3">
+            <p className="text-[11px] tracking-[0.16em] text-[#c9b56a] uppercase">Recent payment links</p>
           </div>
-          <ul className="divide-y divide-white/10">
+          <ul className="divide-y divide-[#C3D0E8]/25">
             {links.slice(0, 6).map((link) => (
-              <li key={link.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <li key={link.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-white">
                     {link.purpose ?? 'Payment link'}
@@ -496,9 +388,10 @@ export function WorkspacePayments({
                     onClick={() => {
                       void navigator.clipboard.writeText(payUrl(link.id, link.url));
                       setCopied(true);
+                      window.setTimeout(() => setCopied(false), 1500);
                       setCreatedId(link.id);
                     }}
-                    className="inline-flex h-8 items-center rounded-lg border border-white/10 px-3 text-xs font-medium text-white/70 transition hover:border-white/25 hover:text-white"
+                    className="inline-flex h-8 items-center rounded-lg border border-[#C3D0E8]/35 px-3 text-xs font-medium text-white/70 transition hover:border-white/25 hover:text-white"
                   >
                     Copy link
                   </button>
@@ -508,66 +401,18 @@ export function WorkspacePayments({
           </ul>
         </section>
       ) : null}
+      </div>
     </div>
   );
 }
 
 function FieldRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="grid gap-2 px-4 py-3.5 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center sm:gap-4">
-      <span className="text-[10px] font-semibold tracking-[0.12em] text-white/40 uppercase">
+    <div>
+      <span className="text-[10px] font-semibold tracking-[0.12em] text-[#c9b56a] uppercase">
         {label}
       </span>
-      <div className="min-w-0">{children}</div>
+      <div className="mt-2 min-w-0">{children}</div>
     </div>
-  );
-}
-
-function SettlementOption({
-  active,
-  onSelect,
-  icon: Icon,
-  title,
-  description,
-}: {
-  active: boolean;
-  onSelect: () => void;
-  icon: typeof Vault;
-  title: string;
-  description: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={cn(
-        'flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left transition',
-        active
-          ? 'border border-[#E7B66D]/55 bg-[#E7B66D]/[0.07] shadow-[inset_0_0_0_1px_rgba(231,182,109,0.12)]'
-          : 'border border-transparent hover:bg-white/[0.03]',
-      )}
-    >
-      <span
-        className={cn(
-          'mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-lg border',
-          active
-            ? 'border-[#E7B66D]/40 bg-[#E7B66D]/15 text-[#F3D28F]'
-            : 'border-white/10 bg-white/[0.03] text-[#8DA4CD]',
-        )}
-      >
-        <Icon className="size-4" strokeWidth={1.75} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-medium text-white">{title}</span>
-        <span className="mt-0.5 block text-xs text-white/45">{description}</span>
-      </span>
-      <span
-        className={cn(
-          'mt-2 size-4 shrink-0 rounded-full border',
-          active ? 'border-[#E7B66D] bg-[#E7B66D]' : 'border-white/25 bg-transparent',
-        )}
-        aria-hidden
-      />
-    </button>
   );
 }
